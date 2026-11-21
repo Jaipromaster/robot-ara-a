@@ -1,0 +1,1701 @@
+<!DOCTYPE html>
+<html class="h-full" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>ARACNO-6 Tactical Command HUD — Open World Radar</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            obsidian: '#0F1419',
+            'hud-panel': 'rgba(19, 27, 34, 0.82)',
+            'hud-panel-dark': 'rgba(13, 19, 24, 0.95)',
+            'hud-cyan': '#00E5FF',
+            'hud-cyan-dim': 'rgba(0, 229, 255, 0.25)',
+            'hud-emerald': '#10B981',
+            'hud-amber': '#F59E0B',
+            'hud-red': '#EF4444',
+            'hud-border': 'rgba(0, 229, 255, 0.22)',
+            'hud-border-subtle': 'rgba(0, 229, 255, 0.10)'
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace']
+          },
+          boxShadow: {
+            'glow-cyan': '0 0 16px rgba(0, 229, 255, 0.35)',
+            'glow-cyan-sm': '0 0 8px rgba(0, 229, 255, 0.45)',
+            'glow-red': '0 0 20px rgba(239, 68, 68, 0.55)',
+            'glow-emerald': '0 0 12px rgba(16, 185, 129, 0.45)',
+            'glow-amber': '0 0 14px rgba(245, 158, 11, 0.45)'
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    body {
+      background-color: #0F1419;
+      color: #E2E8F0;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-font-smoothing: antialiased;
+      touch-action: none;
+    }
+    .hud-glass {
+      background: rgba(18, 25, 33, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(0, 229, 255, 0.22);
+      border-radius: 8px;
+    }
+    .hud-glass-header {
+      background: rgba(14, 20, 26, 0.94);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(0, 229, 255, 0.25);
+    }
+    .grid-bg {
+      background-size: 20px 20px;
+      background-image: 
+        linear-gradient(to right, rgba(0, 229, 255, 0.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0, 229, 255, 0.04) 1px, transparent 1px);
+    }
+    .alert-pulse {
+      animation: alertPulse 1.2s ease-in-out infinite;
+    }
+    @keyframes alertPulse {
+      0%, 100% { opacity: 1; box-shadow: 0 0 25px rgba(239, 68, 68, 0.7); }
+      50% { opacity: 0.6; box-shadow: 0 0 8px rgba(239, 68, 68, 0.3); }
+    }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 20, 25, 0.6); }
+    ::-webkit-scrollbar-thumb { background: rgba(0, 229, 255, 0.3); border-radius: 2px; }
+    input[type=range] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: rgba(255, 255, 255, 0.08);
+      height: 5px;
+      border-radius: 4px;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #00E5FF;
+      cursor: pointer;
+      box-shadow: 0 0 8px #00E5FF;
+      border: 2px solid #0F1419;
+    }
+    .knob-dragging { cursor: grabbing !important; transition: none !important; }
+    .knob-smooth { transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    .yaw-slider-track { touch-action: pan-y; cursor: grab; }
+    .yaw-slider-track:active { cursor: grabbing; }
+  </style>
+</head>
+<body class="h-screen w-screen flex flex-col font-sans select-none overflow-hidden relative">
+<div class="hidden absolute top-0 left-0 right-0 z-50 bg-hud-red/90 text-white text-center py-1.5 px-4 font-mono font-bold tracking-widest text-xs uppercase flex items-center justify-center gap-3 alert-pulse border-b-2 border-white/60" id="estopBanner">
+  <i class="w-4 h-4" data-lucide="alert-octagon"></i>
+  <span>ALERTA CRÍTICA: PARO DE EMERGENCIA ACTIVO — ACTUADORES BLOQUEADOS Y ALIMENTACIÓN AISLADA</span>
+  <button class="ml-4 px-3 py-0.5 bg-white text-hud-red hover:bg-slate-100 rounded text-[11px] font-mono tracking-wider font-extrabold uppercase shadow" onclick="setSystemState('A')">REARMAR SISTEMA</button>
+</div>
+
+<header class="hud-glass-header h-14 shrink-0 px-4 flex items-center justify-between z-30 relative">
+  <div class="flex items-center gap-3.5">
+    <div class="flex items-center gap-2.5">
+      <div class="w-8 h-8 rounded-lg bg-cyan-950/80 border border-hud-cyan/50 flex items-center justify-center text-hud-cyan shadow-glow-cyan-sm">
+        <i class="w-5 h-5" data-lucide="shield-alert"></i>
+      </div>
+      <div class="flex flex-col">
+        <div class="flex items-center gap-2">
+          <span class="text-base font-extrabold tracking-wider text-white">ARACNO-6</span>
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-hud-emerald/15 border border-hud-emerald/40 text-[10px] font-mono font-bold tracking-widest text-hud-emerald" id="armedBadge">
+            <span class="w-1.5 h-1.5 rounded-full bg-hud-emerald animate-pulse"></span>
+            ARMED
+          </span>
+        </div>
+        <span class="text-[10px] font-mono tracking-widest text-slate-400">HEXAPOD TACTICAL HUD v4.2 · OPEN WORLD</span>
+      </div>
+    </div>
+    <div class="h-6 w-px bg-hud-border mx-1"></div>
+    <div class="hidden xl:flex items-center gap-1 bg-black/40 p-1 rounded-lg border border-hud-border-subtle">
+      <span class="text-[9px] font-mono uppercase text-slate-400 px-1.5 font-bold">ESTADO:</span>
+      <button class="px-2 py-0.5 rounded text-[10px] font-mono font-semibold transition bg-hud-cyan/20 text-hud-cyan border border-hud-cyan/40" id="btnStateA" onclick="setSystemState('A')">A. Quieta</button>
+      <button class="px-2 py-0.5 rounded text-[10px] font-mono font-semibold transition text-slate-400 hover:text-white" id="btnStateB" onclick="setSystemState('B')">B. Norte</button>
+      <button class="px-2 py-0.5 rounded text-[10px] font-mono font-semibold transition text-slate-400 hover:text-white" id="btnStateC" onclick="setSystemState('C')">C. Lateral</button>
+      <button class="px-2 py-0.5 rounded text-[10px] font-mono font-semibold transition text-slate-400 hover:text-white" id="btnStateD" onclick="setSystemState('D')">D. Circular</button>
+      <button class="px-2 py-0.5 rounded text-[10px] font-mono font-semibold transition text-slate-400 hover:text-white" id="btnStateE" onclick="setSystemState('E')">E. Giro</button>
+      <button class="px-2 py-0.5 rounded text-[10px] font-mono font-semibold transition text-hud-amber hover:text-amber-300" id="btnStateF" onclick="setSystemState('F')">F. Obstáculo</button>
+      <button class="px-2 py-0.5 rounded text-[10px] font-mono font-semibold transition text-hud-red hover:text-red-400" id="btnStateG" onclick="setSystemState('G')">G. Paro</button>
+    </div>
+  </div>
+
+  <div class="flex items-center gap-5 font-mono text-xs">
+    <div class="flex items-center gap-1.5 text-slate-300 bg-slate-900/60 px-2.5 py-1 rounded border border-hud-border-subtle">
+      <i class="w-3.5 h-3.5 text-hud-cyan" data-lucide="wifi"></i>
+      <span class="text-[11px] font-bold tracking-wider">5.8G</span>
+      <span class="text-[10px] text-hud-emerald font-bold tracking-tight">-48 dBm</span>
+    </div>
+    <div class="flex items-center gap-1.5 text-slate-300 bg-slate-900/60 px-2.5 py-1 rounded border border-hud-border-subtle">
+      <i class="w-3.5 h-3.5 text-hud-cyan" data-lucide="bluetooth"></i>
+      <span class="text-[10px] text-slate-300 tracking-wider">BLE 5.3 LINK</span>
+    </div>
+    <div class="flex items-center gap-2 bg-slate-900/60 px-2.5 py-1 rounded border border-hud-border-subtle">
+      <div class="flex items-center gap-1 text-hud-emerald">
+        <i class="w-4 h-4" data-lucide="battery-charging"></i>
+        <span class="font-bold text-xs tracking-wider" id="batPct">86%</span>
+      </div>
+      <span class="text-[10px] text-slate-400">25.2 V (6S LiPo)</span>
+    </div>
+    <div class="hidden sm:flex items-center gap-1.5 text-slate-300 font-bold bg-slate-900/60 px-2.5 py-1 rounded border border-hud-border-subtle">
+      <i class="w-3.5 h-3.5 text-hud-cyan" data-lucide="clock"></i>
+      <span class="tracking-widest text-xs" id="clockTime">14:32:08</span>
+    </div>
+  </div>
+
+  <div class="flex items-center gap-3">
+    <button class="h-10 px-4 min-w-[170px] min-h-[44px] rounded-lg bg-gradient-to-r from-red-600 via-hud-red to-red-600 hover:from-red-500 hover:to-red-500 text-white font-mono font-extrabold text-xs tracking-widest uppercase flex items-center justify-center gap-2 shadow-glow-red border border-red-300/40 transition active:scale-95" id="estopBtn" onclick="toggleEStop()">
+      <i class="w-4 h-4" data-lucide="octagon-alert"></i>
+      <span id="estopBtnText">PARO DE EMERGENCIA</span>
+    </button>
+  </div>
+</header>
+
+<main class="flex-1 min-h-0 p-3 grid grid-cols-12 gap-3 overflow-hidden transition-all duration-300" id="mainControlArea">
+  <!-- COLUMNA IZQUIERDA -->
+  <section class="col-span-3 flex flex-col gap-2.5 h-full min-h-0">
+    <div class="hud-glass p-3 flex-1 flex flex-col justify-between relative overflow-hidden select-none">
+      <div class="flex items-center justify-between border-b border-hud-border-subtle pb-1.5">
+        <span class="text-xs font-mono font-bold tracking-widest uppercase text-hud-cyan flex items-center gap-1.5">
+          <i class="w-3.5 h-3.5" data-lucide="compass"></i>
+          JOYSTICK DE MARCHA
+        </span>
+        <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider">WASD / 360°</span>
+      </div>
+
+      <div class="relative w-full flex items-center justify-center my-1">
+        <div class="relative w-44 h-44 sm:w-48 sm:h-48 flex items-center justify-center touch-none cursor-grab active:cursor-grabbing" id="joystickZone">
+          <svg class="w-full h-full select-none" id="joystickSvg" viewbox="0 0 200 200">
+            <defs>
+              <radialgradient cx="50%" cy="50%" id="knobGlow" r="50%">
+                <stop offset="0%" stop-color="#00E5FF" stop-opacity="0.95"></stop>
+                <stop offset="60%" stop-color="#00B4D8" stop-opacity="0.7"></stop>
+                <stop offset="100%" stop-color="#0077B6" stop-opacity="0.25"></stop>
+              </radialgradient>
+              <radialgradient cx="50%" cy="50%" id="bgGrad" r="50%">
+                <stop offset="0%" stop-color="#16222F" stop-opacity="0.9"></stop>
+                <stop offset="70%" stop-color="#0D151D" stop-opacity="0.95"></stop>
+                <stop offset="100%" stop-color="#0A0E13" stop-opacity="1"></stop>
+              </radialgradient>
+              <filter height="160%" id="neonBlur" width="160%" x="-30%" y="-30%">
+                <fegaussianblur result="blur" stddeviation="3"></fegaussianblur>
+                <fecomposite in="SourceGraphic" in2="blur" operator="over"></fecomposite>
+              </filter>
+              <filter height="160%" id="vectorGlow" width="160%" x="-30%" y="-30%">
+                <fegaussianblur result="blur" stddeviation="2.5"></fegaussianblur>
+                <fecomposite in="SourceGraphic" in2="blur" operator="over"></fecomposite>
+              </filter>
+            </defs>
+            <circle cx="100" cy="100" fill="url(#bgGrad)" r="92" stroke="#00E5FF" stroke-opacity="0.25" stroke-width="1.5"></circle>
+            <circle cx="100" cy="100" fill="none" r="72" stroke="#00E5FF" stroke-dasharray="3 3" stroke-opacity="0.15"></circle>
+            <circle cx="100" cy="100" fill="none" r="48" stroke="#00E5FF" stroke-opacity="0.12"></circle>
+            <circle cx="100" cy="100" fill="none" r="24" stroke="#00E5FF" stroke-opacity="0.08"></circle>
+            <circle cx="100" cy="100" fill="#00E5FF" fill-opacity="0.05" r="12" stroke="#00E5FF" stroke-opacity="0.25"></circle>
+            <circle cx="100" cy="100" fill="none" id="maxBoundaryRing" r="72" stroke="#00E5FF" stroke-dasharray="2 2" stroke-opacity="0.4" stroke-width="1"></circle>
+            <circle cx="100" cy="100" fill="none" r="88" stroke="#00E5FF" stroke-opacity="0.5" stroke-width="1"></circle>
+            <line stroke="#00E5FF" stroke-opacity="0.8" stroke-width="2" x1="100" x2="100" y1="12" y2="22"></line>
+            <line stroke="#00E5FF" stroke-opacity="0.8" stroke-width="2" x1="100" x2="100" y1="178" y2="188"></line>
+            <line stroke="#00E5FF" stroke-opacity="0.8" stroke-width="2" x1="12" x2="22" y1="100" y2="100"></line>
+            <line stroke="#00E5FF" stroke-opacity="0.8" stroke-width="2" x1="178" x2="188" y1="100" y2="100"></line>
+            <text fill="#00E5FF" fill-opacity="0.85" font-family="'JetBrains Mono'" font-size="9" font-weight="700" text-anchor="middle" x="100" y="30">N</text>
+            <text fill="#00E5FF" fill-opacity="0.85" font-family="'JetBrains Mono'" font-size="9" font-weight="700" text-anchor="middle" x="172" y="103">E</text>
+            <text fill="#00E5FF" fill-opacity="0.85" font-family="'JetBrains Mono'" font-size="9" font-weight="700" text-anchor="middle" x="100" y="174">S</text>
+            <text fill="#00E5FF" fill-opacity="0.85" font-family="'JetBrains Mono'" font-size="9" font-weight="700" text-anchor="middle" x="28" y="103">O</text>
+            <path d="M 100 100 L 100 100" filter="url(#vectorGlow)" id="vectorArc" stroke="#00E5FF" stroke-linecap="round" stroke-opacity="0.75" stroke-width="2.5"></path>
+            <line filter="url(#neonBlur)" id="vectorLine" stroke="#00E5FF" stroke-opacity="0.9" stroke-width="2" x1="100" x2="100" y1="100" y2="100"></line>
+            <g class="cursor-grab active:cursor-grabbing knob-smooth" id="joystickKnob" transform="translate(100, 100)">
+              <circle cx="0" cy="0" fill="url(#knobGlow)" filter="url(#neonBlur)" r="21" stroke="#00E5FF" stroke-width="2"></circle>
+              <circle cx="0" cy="0" fill="#0F1419" r="11" stroke="#00E5FF" stroke-width="1.5"></circle>
+              <circle cx="0" cy="0" fill="#00E5FF" r="3.5"></circle>
+            </g>
+          </svg>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 bg-black/40 p-2 rounded border border-hud-border-subtle font-mono">
+        <div class="flex flex-col">
+          <span class="text-[9px] uppercase tracking-wider text-slate-400">RUMBO / VECTOR</span>
+          <span class="text-xs font-bold text-hud-cyan tracking-wider" id="readoutAngle">ÁNGULO 000°</span>
+        </div>
+        <div class="flex flex-col text-right">
+          <span class="text-[9px] uppercase tracking-wider text-slate-400">EMPUJE / THRUST</span>
+          <span class="text-xs font-bold text-hud-emerald tracking-wider" id="readoutForce">FUERZA 00 %</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 pt-1.5">
+        <button class="h-9 px-2 rounded-lg bg-slate-900/80 border border-hud-border text-[10px] font-mono font-bold tracking-wider flex items-center justify-between hover:bg-slate-800 transition" id="toggleLockHeading" onclick="toggleHeadingLock()">
+          <span class="text-slate-300">BLOQ. RUMBO</span>
+          <span class="w-2 h-2 rounded-full bg-slate-600" id="lockStatusLed"></span>
+        </button>
+        <button class="h-9 px-2 rounded-lg bg-slate-900/80 border border-hud-border text-[10px] font-mono font-bold tracking-wider flex items-center justify-between hover:bg-slate-800 transition" id="toggleFineMode" onclick="toggleFineControl()">
+          <span class="text-slate-300">MODO FINO</span>
+          <span class="w-2 h-2 rounded-full bg-hud-emerald shadow-glow-emerald" id="fineStatusLed"></span>
+        </button>
+      </div>
+    </div>
+
+    <div class="hud-glass p-2.5 flex flex-col gap-1.5">
+      <div class="flex items-center justify-between">
+        <span class="text-[11px] font-mono font-bold tracking-wider uppercase text-hud-cyan flex items-center gap-1.5">
+          <i class="w-3.5 h-3.5" data-lucide="rotate-cw"></i>
+          ROTACIÓN CORPORAL (YAW)
+        </span>
+        <span class="text-[10px] font-mono text-slate-300" id="yawValue">0.0°/s</span>
+      </div>
+      <div class="relative h-11 w-full bg-black/50 rounded-lg border border-hud-border-subtle flex items-center px-3 justify-between overflow-hidden yaw-slider-track" id="yawTrack">
+        <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div class="h-full w-0.5 bg-hud-cyan/40"></div>
+        </div>
+        <div class="absolute top-1/2 -translate-y-1/2 w-4 h-7 rounded bg-hud-cyan/30 border border-hud-cyan flex items-center justify-center shadow-glow-cyan-sm pointer-events-none transition-all duration-100" id="yawHandle" style="left: calc(50% - 8px);">
+          <div class="w-1 h-3 bg-hud-cyan rounded-full"></div>
+        </div>
+        <button class="z-10 w-9 h-8 rounded bg-slate-800/80 border border-hud-border flex items-center justify-center text-hud-cyan hover:bg-hud-cyan/20 active:scale-95 transition" onclick="applyYawStep(-1)">
+          <i class="w-4 h-4" data-lucide="chevron-left"></i>
+        </button>
+        <div class="flex items-center gap-1 text-[9px] font-mono text-slate-400 tracking-widest z-10 pointer-events-none select-none">
+          <span>◄ Q / IZQ</span>
+          <span class="mx-1 text-slate-600">|</span>
+          <span>DER / E ►</span>
+        </div>
+        <button class="z-10 w-9 h-8 rounded bg-slate-800/80 border border-hud-border flex items-center justify-center text-hud-cyan hover:bg-hud-cyan/20 active:scale-95 transition" onclick="applyYawStep(1)">
+          <i class="w-4 h-4" data-lucide="chevron-right"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="hud-glass p-2.5 flex flex-col gap-2">
+      <div>
+        <span class="text-[10px] font-mono font-bold tracking-wider uppercase text-slate-400 block mb-1">SELECTOR DE MARCHA (GAIT)</span>
+        <div class="grid grid-cols-3 gap-1.5 font-mono text-[10px]">
+          <button class="py-1.5 px-1 rounded-md bg-hud-cyan/20 border border-hud-cyan text-hud-cyan font-bold text-center transition" id="gaitTripode" onclick="selectGait('tripode')">
+            TRÍPODE
+            <span class="block text-[8px] opacity-75 font-normal">Rápido</span>
+          </button>
+          <button class="py-1.5 px-1 rounded-md bg-slate-900 border border-hud-border text-slate-400 font-bold text-center hover:text-white transition" id="gaitOla" onclick="selectGait('ola')">
+            OLA
+            <span class="block text-[8px] opacity-75 font-normal">Estable</span>
+          </button>
+          <button class="py-1.5 px-1 rounded-md bg-slate-900 border border-hud-border text-slate-400 font-bold text-center hover:text-white transition" id="gaitOndulante" onclick="selectGait('ondulante')">
+            ONDULANTE
+            <span class="block text-[8px] opacity-75 font-normal">Equilibrado</span>
+          </button>
+        </div>
+      </div>
+      <div class="pt-1">
+        <div class="flex items-center justify-between text-[10px] font-mono mb-1">
+          <span class="text-slate-400 uppercase tracking-wider">LÍMITE VELOCIDAD</span>
+          <span class="text-hud-cyan font-bold" id="speedLimitVal">1.25 m/s (MAX)</span>
+        </div>
+        <input class="w-full cursor-pointer" id="speedLimitSlider" max="100" min="0" oninput="updateSpeedLimit(this.value)" type="range" value="80"/>
+        <div class="flex justify-between text-[8px] font-mono text-slate-500 mt-0.5">
+          <span>0 m/s</span>
+          <span>0.75 m/s</span>
+          <span>MAX (1.5 m/s)</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COLUMNA CENTRAL -->
+  <section class="col-span-5 flex flex-col gap-2.5 h-full min-h-0">
+    <!-- CHASIS VECTORIAL 2D -->
+    <div class="hud-glass p-3 flex-1 flex flex-col relative overflow-hidden grid-bg" id="chassisPanel">
+      <div class="flex items-center justify-between border-b border-hud-border-subtle pb-2 z-10">
+        <div class="flex items-center gap-2">
+          <div class="w-10 h-7 rounded border border-hud-cyan/40 bg-black/80 flex items-center justify-center relative overflow-hidden group cursor-pointer" title="Cámara Frontal HD">
+            <div class="absolute inset-0 bg-hud-cyan/10"></div>
+            <i class="w-3.5 h-3.5 text-hud-cyan" data-lucide="video"></i>
+            <span class="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-red-500 animate-ping"></span>
+          </div>
+          <div>
+            <div class="flex items-center gap-1.5">
+              <span class="text-xs font-mono font-extrabold text-white tracking-wider">CHASIS VECTORIAL 2D</span>
+              <span class="text-[10px] font-mono text-hud-cyan font-bold bg-slate-900/90 px-1.5 py-0.5 rounded border border-hud-cyan/30" id="headingReadout">HEADING N 000°</span>
+            </div>
+            <span class="text-[9px] font-mono text-slate-400">CINEMÁTICA INVERSA 18 DOF</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-1">
+          <button class="w-7 h-7 rounded bg-slate-900/80 border border-hud-border flex items-center justify-center text-slate-300 hover:text-hud-cyan hover:border-hud-cyan text-[10px] transition" title="Captura">
+            <i class="w-3.5 h-3.5" data-lucide="camera"></i>
+          </button>
+          <button class="w-7 h-7 rounded bg-slate-900/80 border border-hud-border flex items-center justify-center text-hud-red hover:bg-hud-red/20 text-[10px] transition" title="Grabar REC">
+            <span class="w-2.5 h-2.5 rounded-full bg-hud-red"></span>
+          </button>
+          <button class="w-7 h-7 rounded bg-slate-900/80 border border-hud-border flex items-center justify-center text-slate-400 hover:text-amber-400 text-[10px] transition" id="torchBtn" onclick="toggleTorch()" title="Proyector Frontal">
+            <i class="w-3.5 h-3.5" data-lucide="lightbulb"></i>
+          </button>
+          <div class="flex bg-slate-900 rounded border border-hud-border p-0.5 text-[9px] font-mono">
+            <button class="px-1 text-hud-cyan font-bold" onclick="setCamZoom('1x')">1x</button>
+            <button class="px-1 text-slate-400 hover:text-white" onclick="setCamZoom('2x')">2x</button>
+            <button class="px-1 text-slate-400 hover:text-white" onclick="setCamZoom('4x')">4x</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex-1 w-full relative flex items-center justify-center my-0.5">
+        <svg class="w-full h-full max-h-[175px]" id="spiderSvg" viewbox="0 0 340 220">
+          <defs>
+            <radialgradient cx="50%" cy="50%" id="bodyGrad" r="50%">
+              <stop offset="0%" stop-color="#243342"></stop>
+              <stop offset="60%" stop-color="#16212B"></stop>
+              <stop offset="100%" stop-color="#0E161D"></stop>
+            </radialgradient>
+            <filter height="160%" id="jointGlow" width="160%" x="-30%" y="-30%">
+              <fegaussianblur result="blur" stddeviation="2"></fegaussianblur>
+              <fecomposite in="SourceGraphic" in2="blur" operator="over"></fecomposite>
+            </filter>
+          </defs>
+          <g id="spiderMasterGroup" transform="rotate(0 170 110)">
+            <path d="M 170 160 L 170 210" id="spiderTrail" opacity="0.12" stroke="#00E5FF" stroke-linecap="round" stroke-width="20"></path>
+            <g id="leg1">
+              <path d="M 140 85 L 105 60 L 65 40 L 45 30" fill="none" id="leg1Path" stroke="#10B981" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"></path>
+              <circle cx="140" cy="85" fill="#00E5FF" r="3.5"></circle>
+              <circle cx="105" cy="60" fill="#10B981" filter="url(#jointGlow)" r="3" id="leg1Knee"></circle>
+              <circle cx="65" cy="40" fill="#10B981" r="2.5" id="leg1Ankle"></circle>
+              <circle cx="45" cy="30" fill="#10B981" filter="url(#jointGlow)" id="leg1Tip" r="5" stroke="#0F1419" stroke-width="1.5"></circle>
+              <text fill="#E2E8F0" font-family="'JetBrains Mono'" font-size="8" font-weight="700" x="35" y="24">L1</text>
+            </g>
+            <g id="leg2">
+              <path d="M 200 85 L 235 60 L 275 40 L 295 30" fill="none" id="leg2Path" stroke="#10B981" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"></path>
+              <circle cx="200" cy="85" fill="#00E5FF" r="3.5"></circle>
+              <circle cx="235" cy="60" fill="#10B981" filter="url(#jointGlow)" r="3" id="leg2Knee"></circle>
+              <circle cx="275" cy="40" fill="#10B981" r="2.5" id="leg2Ankle"></circle>
+              <circle cx="295" cy="30" fill="#10B981" filter="url(#jointGlow)" id="leg2Tip" r="5" stroke="#0F1419" stroke-width="1.5"></circle>
+              <text fill="#E2E8F0" font-family="'JetBrains Mono'" font-size="8" font-weight="700" x="303" y="24">R2</text>
+            </g>
+            <g id="leg3">
+              <path d="M 135 110 L 90 110 L 50 115 L 25 120" fill="none" id="leg3Path" stroke="#10B981" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"></path>
+              <circle cx="135" cy="110" fill="#00E5FF" r="3.5"></circle>
+              <circle cx="90" cy="110" fill="#10B981" filter="url(#jointGlow)" r="3" id="leg3Knee"></circle>
+              <circle cx="50" cy="115" fill="#10B981" r="2.5" id="leg3Ankle"></circle>
+              <circle cx="25" cy="120" fill="#10B981" filter="url(#jointGlow)" id="leg3Tip" r="5" stroke="#0F1419" stroke-width="1.5"></circle>
+              <text fill="#E2E8F0" font-family="'JetBrains Mono'" font-size="8" font-weight="700" x="12" y="123">L3</text>
+            </g>
+            <g id="leg4">
+              <path d="M 205 110 L 250 110 L 290 115 L 315 120" fill="none" id="leg4Path" stroke="#10B981" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"></path>
+              <circle cx="205" cy="110" fill="#00E5FF" r="3.5"></circle>
+              <circle cx="250" cy="110" fill="#10B981" filter="url(#jointGlow)" r="3" id="leg4Knee"></circle>
+              <circle cx="290" cy="115" fill="#10B981" r="2.5" id="leg4Ankle"></circle>
+              <circle cx="315" cy="120" fill="#10B981" filter="url(#jointGlow)" id="leg4Tip" r="5" stroke="#0F1419" stroke-width="1.5"></circle>
+              <text fill="#E2E8F0" font-family="'JetBrains Mono'" font-size="8" font-weight="700" x="323" y="123">R4</text>
+            </g>
+            <g id="leg5">
+              <path d="M 140 135 L 105 160 L 70 180 L 45 195" fill="none" id="leg5Path" stroke="#10B981" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"></path>
+              <circle cx="140" cy="135" fill="#00E5FF" r="3.5"></circle>
+              <circle cx="105" cy="160" fill="#10B981" filter="url(#jointGlow)" r="3" id="leg5Knee"></circle>
+              <circle cx="70" cy="180" fill="#10B981" r="2.5" id="leg5Ankle"></circle>
+              <circle cx="45" cy="195" fill="#10B981" filter="url(#jointGlow)" id="leg5Tip" r="5" stroke="#0F1419" stroke-width="1.5"></circle>
+              <text fill="#E2E8F0" font-family="'JetBrains Mono'" font-size="8" font-weight="700" x="35" y="208">L5</text>
+            </g>
+            <g id="leg6">
+              <path d="M 200 135 L 235 160 L 270 180 L 295 195" fill="none" id="leg6Path" stroke="#10B981" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"></path>
+              <circle cx="200" cy="135" fill="#00E5FF" r="3.5"></circle>
+              <circle cx="235" cy="160" fill="#10B981" filter="url(#jointGlow)" r="3" id="leg6Knee"></circle>
+              <circle cx="270" cy="180" fill="#10B981" r="2.5" id="leg6Ankle"></circle>
+              <circle cx="295" cy="195" fill="#10B981" filter="url(#jointGlow)" id="leg6Tip" r="5" stroke="#0F1419" stroke-width="1.5"></circle>
+              <text fill="#E2E8F0" font-family="'JetBrains Mono'" font-size="8" font-weight="700" x="303" y="208">R6</text>
+            </g>
+            <g id="spiderBody">
+              <ellipse cx="170" cy="112" fill="#000000" filter="url(#jointGlow)" opacity="0.6" rx="38" ry="46"></ellipse>
+              <ellipse cx="170" cy="110" fill="url(#bodyGrad)" rx="36" ry="44" stroke="#00E5FF" stroke-width="2"></ellipse>
+              <path d="M 152 82 L 188 82 L 184 138 L 156 138 Z" fill="#101922" stroke="#00E5FF" stroke-opacity="0.3" stroke-width="1"></path>
+              <path d="M 156 70 C 156 60, 184 60, 184 70 Z" fill="#1A2834" stroke="#00E5FF" stroke-width="1.5"></path>
+              <circle cx="163" cy="67" fill="#00E5FF" filter="url(#jointGlow)" id="eyeL" r="3.5"></circle>
+              <circle cx="177" cy="67" fill="#00E5FF" filter="url(#jointGlow)" id="eyeR" r="3.5"></circle>
+              <circle cx="170" cy="100" fill="#0A1015" r="10" stroke="#00E5FF" stroke-width="1.2"></circle>
+              <circle cx="170" cy="100" fill="#00E5FF" opacity="0.8" r="4"></circle>
+              <line stroke="#00E5FF" stroke-dasharray="2 2" stroke-opacity="0.35" x1="170" x2="170" y1="78" y2="128"></line>
+              <line stroke="#00E5FF" stroke-dasharray="2 2" stroke-opacity="0.35" x1="145" x2="195" y1="110" y2="110"></line>
+            </g>
+          </g>
+        </svg>
+      </div>
+
+      <div class="grid grid-cols-4 gap-1.5 pt-1 border-t border-hud-border-subtle">
+        <button class="py-1.5 px-1 rounded bg-slate-900/90 border border-hud-border text-[9px] font-mono font-bold text-slate-300 hover:text-hud-cyan hover:border-hud-cyan transition flex items-center justify-center gap-1" id="poseBtnStand" onclick="setPose('stand')">
+          <i class="w-3 h-3 text-hud-emerald" data-lucide="arrow-up"></i>
+          LEVANTARSE
+        </button>
+        <button class="py-1.5 px-1 rounded bg-slate-900/90 border border-hud-border text-[9px] font-mono font-bold text-slate-300 hover:text-hud-cyan hover:border-hud-cyan transition flex items-center justify-center gap-1" id="poseBtnSit" onclick="setPose('sit')">
+          <i class="w-3 h-3 text-hud-amber" data-lucide="arrow-down"></i>
+          SENTARSE
+        </button>
+        <button class="py-1.5 px-1 rounded bg-slate-900/90 border border-hud-border text-[9px] font-mono font-bold text-slate-300 hover:text-hud-cyan hover:border-hud-cyan transition flex items-center justify-center gap-1" id="poseBtnWave" onclick="setPose('wave')">
+          <i class="w-3 h-3 text-hud-cyan" data-lucide="hand"></i>
+          SALUDAR
+        </button>
+        <button class="py-1.5 px-1 rounded bg-slate-900/90 border border-hud-border text-[9px] font-mono font-bold text-slate-300 hover:text-hud-cyan hover:border-hud-cyan transition flex items-center justify-center gap-1" id="poseBtnDance" onclick="setPose('dance')">
+          <i class="w-3 h-3 text-purple-400" data-lucide="sparkles"></i>
+          BAILAR
+        </button>
+      </div>
+    </div>
+
+    <!-- RADAR LIDAR 2D: MUNDO ABIERTO -->
+    <div class="hud-glass p-2.5 flex-1 flex flex-col justify-between relative overflow-hidden bg-hud-panel-dark" id="radarPanel">
+      <div class="flex items-center justify-between border-b border-hud-border-subtle pb-1 z-10">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-mono font-bold text-hud-cyan tracking-wider flex items-center gap-1.5">
+            <i class="w-3.5 h-3.5 text-hud-cyan" data-lucide="radar"></i>
+            RADAR LIDAR 2D
+          </span>
+          <span class="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-hud-emerald/20 text-hud-emerald border border-hud-emerald/40" id="radarObstacleBadge">
+            VÍA DESPEJADA
+          </span>
+        </div>
+        <div class="flex items-center gap-1 font-mono text-[9px]">
+          <button class="px-2 py-0.5 rounded bg-hud-cyan/20 border border-hud-cyan text-hud-cyan font-bold transition" id="btnFollowCam" onclick="toggleFollowCam()">SEGUIR</button>
+          <button class="px-2 py-0.5 rounded bg-slate-900 border border-hud-border text-slate-300 hover:text-hud-cyan transition" onclick="clearRadarTrail()">BORRAR ESTELA</button>
+          <button class="px-2 py-0.5 rounded bg-hud-emerald/15 border border-hud-emerald/60 text-hud-emerald font-bold transition" onclick="returnToBase()">A BASE</button>
+          <button class="px-1.5 py-0.5 rounded bg-slate-900 border border-hud-border text-slate-300 hover:text-hud-cyan transition" id="btnExpandRadar" onclick="toggleExpandRadar()" title="Expandir Mapa">⛶</button>
+        </div>
+      </div>
+
+      <div class="relative w-full flex-1 flex items-center justify-center my-0.5 min-h-[150px] rounded overflow-hidden border border-hud-border-subtle bg-[#070B0E]" id="radarCanvasContainer">
+        <canvas class="w-full h-full block cursor-crosshair" id="radarCanvas"></canvas>
+        <div class="absolute top-1.5 left-2 pointer-events-none font-mono text-[9px] text-slate-400 bg-black/60 px-1.5 py-0.5 rounded border border-hud-border-subtle">
+          CLIC EN MAPA: WAYPOINT · RUEDA: ZOOM · WASD: MOVER
+        </div>
+        <div class="absolute bottom-1.5 left-2 pointer-events-none font-mono text-[9px] font-bold text-hud-cyan bg-black/70 px-1.5 py-0.5 rounded border border-hud-border-subtle" id="radarCoordsLabel">
+          X +0.00 m · Y +0.00 m
+        </div>
+        <div class="absolute bottom-1.5 right-2 pointer-events-none font-mono text-[9px] text-slate-300 bg-black/70 px-1.5 py-0.5 rounded border border-hud-border-subtle" id="radarZoomLabel">
+          SECTOR 24×24m · 1.0x
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COLUMNA DERECHA -->
+  <section class="col-span-4 flex flex-col gap-2.5 h-full min-h-0">
+    <div class="grid grid-cols-3 gap-2">
+      <div class="hud-glass p-2 flex flex-col">
+        <span class="text-[9px] font-mono text-slate-400 uppercase tracking-wider">VELOCIDAD</span>
+        <div class="flex items-baseline gap-1 mt-0.5">
+          <span class="text-sm font-mono font-bold text-hud-cyan" id="teleSpeed">0.00</span>
+          <span class="text-[9px] font-mono text-slate-400">m/s</span>
+        </div>
+      </div>
+      <div class="hud-glass p-2 flex flex-col">
+        <span class="text-[9px] font-mono text-slate-400 uppercase tracking-wider">TEMP SERVOS</span>
+        <div class="flex items-baseline gap-1 mt-0.5">
+          <span class="text-sm font-mono font-bold text-hud-amber" id="teleTemp">43.8</span>
+          <span class="text-[9px] font-mono text-slate-400">°C</span>
+        </div>
+      </div>
+      <div class="hud-glass p-2 flex flex-col">
+        <span class="text-[9px] font-mono text-slate-400 uppercase tracking-wider">PATAS SUELO</span>
+        <div class="flex items-baseline gap-1 mt-0.5">
+          <span class="text-sm font-mono font-bold text-hud-emerald" id="teleLegsGround">6/6</span>
+          <span class="text-[9px] font-mono text-slate-400">CONT.</span>
+        </div>
+      </div>
+      <div class="hud-glass p-2 flex flex-col">
+        <span class="text-[9px] font-mono text-slate-400 uppercase tracking-wider">PITCH / ROLL</span>
+        <div class="flex items-baseline gap-1 mt-0.5">
+          <span class="text-xs font-mono font-bold text-slate-200" id="telePitchRoll">+1.2° / -0.4°</span>
+        </div>
+      </div>
+      <div class="hud-glass p-2 flex flex-col col-span-2">
+        <span class="text-[9px] font-mono text-slate-400 uppercase tracking-wider">DISTANCIA MISIÓN</span>
+        <div class="flex items-baseline justify-between mt-0.5">
+          <span class="text-xs font-mono font-bold text-hud-cyan" id="teleOdom">184.6 m</span>
+          <span class="text-[9px] font-mono text-hud-emerald font-semibold">ODOM OK</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="hud-glass p-2.5 flex flex-col gap-1.5">
+      <span class="text-[10px] font-mono font-bold text-hud-cyan uppercase tracking-wider flex items-center justify-between">
+        <span>CINEMÁTICA DEL CHASIS</span>
+        <span class="text-[9px] text-slate-400">AJUSTE EN VIVO</span>
+      </span>
+      <div class="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[9px] font-mono">
+        <div>
+          <div class="flex justify-between text-slate-300 mb-0.5">
+            <span>ALTURA CUERPO</span>
+            <span class="text-hud-cyan font-bold" id="valBodyHeight">120 mm</span>
+          </div>
+          <input class="w-full" max="180" min="60" oninput="document.getElementById('valBodyHeight').innerText = this.value + ' mm'" type="range" value="120"/>
+        </div>
+        <div>
+          <div class="flex justify-between text-slate-300 mb-0.5">
+            <span>ALTURA PASO</span>
+            <span class="text-hud-cyan font-bold" id="valStepHeight">35 mm</span>
+          </div>
+          <input class="w-full" max="70" min="15" oninput="document.getElementById('valStepHeight').innerText = this.value + ' mm'" type="range" value="35"/>
+        </div>
+        <div>
+          <div class="flex justify-between text-slate-300 mb-0.5">
+            <span>INCL. LATERAL</span>
+            <span class="text-hud-cyan font-bold" id="valRoll">0.0°</span>
+          </div>
+          <input class="w-full" max="15" min="-15" oninput="document.getElementById('valRoll').innerText = (this.value >= 0 ? '+' : '') + this.value + '.0°'" type="range" value="0"/>
+        </div>
+        <div>
+          <div class="flex justify-between text-slate-300 mb-0.5">
+            <span>INCL. FRONTAL</span>
+            <span class="text-hud-cyan font-bold" id="valPitch">+2.0°</span>
+          </div>
+          <input class="w-full" max="15" min="-15" oninput="document.getElementById('valPitch').innerText = (this.value >= 0 ? '+' : '') + this.value + '.0°'" type="range" value="2"/>
+        </div>
+      </div>
+    </div>
+
+    <div class="hud-glass p-2.5 flex-1 flex flex-col justify-between overflow-hidden">
+      <div class="flex items-center justify-between border-b border-hud-border-subtle pb-1">
+        <span class="text-[10px] font-mono font-bold text-slate-300 uppercase tracking-wider">MATRIZ ARTICULAR (18 SERVOS)</span>
+        <span class="text-[8px] font-mono text-slate-400">CADERA · FÉMUR · TIBIA</span>
+      </div>
+      <div class="grid grid-cols-2 gap-x-2 gap-y-1 my-1 font-mono text-[9px]">
+        <div class="flex items-center justify-between bg-black/40 px-1.5 py-0.5 rounded border border-hud-border-subtle">
+          <span class="font-bold text-slate-200">P1</span>
+          <div class="flex items-center gap-1"><span class="w-3 h-1 bg-hud-cyan rounded-xs"></span><span class="w-4 h-1 bg-hud-cyan rounded-xs"></span><span class="w-3 h-1 bg-hud-cyan rounded-xs"></span></div>
+          <span class="w-2 h-2 rounded-full bg-hud-emerald shadow-glow-emerald"></span>
+        </div>
+        <div class="flex items-center justify-between bg-black/40 px-1.5 py-0.5 rounded border border-hud-border-subtle">
+          <span class="font-bold text-slate-200">P2</span>
+          <div class="flex items-center gap-1"><span class="w-3 h-1 bg-hud-cyan rounded-xs"></span><span class="w-3 h-1 bg-hud-cyan rounded-xs"></span><span class="w-4 h-1 bg-hud-cyan rounded-xs"></span></div>
+          <span class="w-2 h-2 rounded-full bg-hud-emerald shadow-glow-emerald"></span>
+        </div>
+        <div class="flex items-center justify-between bg-black/40 px-1.5 py-0.5 rounded border border-hud-border-subtle">
+          <span class="font-bold text-slate-200">P3</span>
+          <div class="flex items-center gap-1"><span class="w-4 h-1 bg-hud-cyan rounded-xs"></span><span class="w-3 h-1 bg-hud-cyan rounded-xs"></span><span class="w-3 h-1 bg-hud-cyan rounded-xs"></span></div>
+          <span class="w-2 h-2 rounded-full bg-hud-emerald shadow-glow-emerald"></span>
+        </div>
+        <div class="flex items-center justify-between bg-black/40 px-1.5 py-0.5 rounded border border-hud-amber/30">
+          <span class="font-bold text-hud-amber">P4</span>
+          <div class="flex items-center gap-1"><span class="w-4 h-1 bg-hud-amber rounded-xs"></span><span class="w-5 h-1 bg-hud-amber rounded-xs"></span><span class="w-3 h-1 bg-hud-amber rounded-xs"></span></div>
+          <span class="w-2 h-2 rounded-full bg-hud-amber shadow-glow-amber animate-pulse"></span>
+        </div>
+        <div class="flex items-center justify-between bg-black/40 px-1.5 py-0.5 rounded border border-hud-border-subtle">
+          <span class="font-bold text-slate-200">P5</span>
+          <div class="flex items-center gap-1"><span class="w-3 h-1 bg-hud-cyan rounded-xs"></span><span class="w-4 h-1 bg-hud-cyan rounded-xs"></span><span class="w-3 h-1 bg-hud-cyan rounded-xs"></span></div>
+          <span class="w-2 h-2 rounded-full bg-hud-emerald shadow-glow-emerald"></span>
+        </div>
+        <div class="flex items-center justify-between bg-black/40 px-1.5 py-0.5 rounded border border-hud-border-subtle">
+          <span class="font-bold text-slate-200">P6</span>
+          <div class="flex items-center gap-1"><span class="w-4 h-1 bg-hud-cyan rounded-xs"></span><span class="w-3 h-1 bg-hud-cyan rounded-xs"></span><span class="w-4 h-1 bg-hud-cyan rounded-xs"></span></div>
+          <span class="w-2 h-2 rounded-full bg-hud-emerald shadow-glow-emerald"></span>
+        </div>
+      </div>
+
+      <div class="bg-black/50 p-1.5 rounded border border-hud-border-subtle">
+        <div class="flex items-center justify-between text-[8px] font-mono text-slate-400 mb-0.5">
+          <span>CONSUMO CORRIENTE (BUS 24V)</span>
+          <span class="text-hud-cyan font-bold" id="teleCurrent">14.2 A</span>
+        </div>
+        <svg class="w-full h-8" viewbox="0 0 200 40">
+          <defs>
+            <lineargradient id="powerFill" x1="0%" x2="0%" y1="0%" y2="100%">
+              <stop offset="0%" stop-color="#00E5FF" stop-opacity="0.35"></stop>
+              <stop offset="100%" stop-color="#00E5FF" stop-opacity="0.0"></stop>
+            </lineargradient>
+          </defs>
+          <path d="M 0 30 Q 30 25, 60 28 T 120 18 T 160 22 T 195 12 L 195 40 L 0 40 Z" fill="url(#powerFill)"></path>
+          <path d="M 0 30 Q 30 25, 60 28 T 120 18 T 160 22 T 195 12" fill="none" stroke="#00E5FF" stroke-width="1.8"></path>
+          <circle cx="195" cy="12" fill="#00E5FF" r="3.5" stroke="#0F1419" stroke-width="1.5"></circle>
+        </svg>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="hud-glass-header h-14 shrink-0 px-4 py-1.5 flex items-center gap-4 z-20">
+  <div class="flex-1 flex flex-col justify-center overflow-hidden font-mono text-[10px] space-y-0.5">
+    <div class="flex items-center gap-2 truncate" id="logLine1">
+      <span class="text-slate-500">14:32:05</span>
+      <span class="text-hud-emerald font-bold">[MUNDO]</span>
+      <span class="text-slate-300">Mapa táctico abierto 24×24m inicializado — Usa Joystick, WASD o haz clic en el Radar</span>
+    </div>
+    <div class="flex items-center gap-2 truncate" id="logLine2">
+      <span class="text-slate-500">14:31:58</span>
+      <span class="text-hud-amber font-bold">[AVISO]</span>
+      <span class="text-slate-300">Pata 4 servo fémur sobrecalentada (43.8 °C)</span>
+    </div>
+    <div class="flex items-center gap-2 truncate" id="logLine3">
+      <span class="text-slate-500">14:31:40</span>
+      <span class="text-hud-emerald font-bold">[SISTEMA]</span>
+      <span class="text-slate-300">Marcha en trípode activada — Sincronización 18 DOF nominal</span>
+    </div>
+  </div>
+  <div class="flex items-center gap-2 w-80 shrink-0">
+    <div class="relative flex-1">
+      <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-hud-cyan font-mono font-bold text-xs">&gt;</span>
+      <input class="w-full h-9 pl-6 pr-2 rounded bg-black/60 border border-hud-border text-xs font-mono text-slate-200 placeholder-slate-600 focus:outline-none focus:border-hud-cyan transition" id="commandInput" placeholder="CMD: base / center / gait wave" type="text"/>
+    </div>
+    <button class="h-9 px-3 rounded bg-hud-cyan/20 border border-hud-cyan text-hud-cyan hover:bg-hud-cyan hover:text-black font-mono font-bold text-xs uppercase tracking-wider transition active:scale-95 shadow-glow-cyan-sm" onclick="executeCommand()">
+      EJECUTAR
+    </button>
+  </div>
+</footer>
+
+<script>
+    lucide.createIcons();
+
+    function updateClock() {
+      const now = new Date();
+      const h = String(now.getHours()).padStart(2, '0');
+      const m = String(now.getMinutes()).padStart(2, '0');
+      const s = String(now.getSeconds()).padStart(2, '0');
+      const el = document.getElementById('clockTime');
+      if (el) el.innerText = `${h}:${m}:${s}`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    let currentState = 'A';
+    let isEstop = false;
+    let isLockedHeading = false;
+    let isFineMode = true;
+    let isTorch = false;
+    let currentSpeedMax = 1.25;
+    let currentYawRate = 0;
+    let currentGait = 'tripode';
+    let currentPose = 'stand';
+    let missionDistance = 184.6;
+
+    const world = {
+      halfSize: 12.0,
+      base: { x: -4.5, y: 4.5, r: 1.2 },
+      spider: { x: 0.0, y: 0.0, heading: 0.0, radius: 0.42 },
+      waypoint: null,
+      trail: [{ x: 0.0, y: 0.0 }],
+      camera: { x: 0.0, y: 0.0, zoom: 32, follow: true },
+      obstacles: [
+        { type: 'circle', x: 0.0, y: -3.2, r: 0.55, label: 'BALIZA N-1' },
+        { type: 'circle', x: 4.2, y: -2.8, r: 0.75, label: 'ROCA A' },
+        { type: 'circle', x: -3.5, y: -4.0, r: 0.65, label: 'TORRE' },
+        { type: 'circle', x: 3.8, y: 3.6, r: 0.85, label: 'CONTENEDOR' },
+        { type: 'circle', x: -6.8, y: -1.2, r: 0.60, label: 'PILAR O-2' },
+        { type: 'circle', x: 7.2, y: -6.5, r: 0.90, label: 'NODO NE' },
+        { type: 'circle', x: -7.5, y: 7.5, r: 0.70, label: 'DEPÓSITO' },
+        { type: 'rect', x: 1.8, y: 0.8, w: 2.2, h: 0.45, label: 'MURO SECTOR E' },
+        { type: 'rect', x: -5.5, y: 1.5, w: 0.45, h: 2.6, label: 'BARRERA' },
+        { type: 'rect', x: -1.5, y: -7.2, w: 3.4, h: 0.5, label: 'MURALLA NORTE' },
+        { type: 'rect', x: 5.5, y: -1.0, w: 0.5, h: 3.0, label: 'ESTRUCTURA' }
+      ],
+      pois: [
+        { x: 6.5, y: -7.5, name: 'ALPHA' },
+        { x: 7.5, y: 6.8, name: 'BRAVO' },
+        { x: -8.0, y: -7.0, name: 'CHARLIE' }
+      ]
+    };
+
+    const knob = document.getElementById('joystickKnob');
+    const vectorLine = document.getElementById('vectorLine');
+    const vectorArc = document.getElementById('vectorArc');
+    const readoutAngle = document.getElementById('readoutAngle');
+    const readoutForce = document.getElementById('readoutForce');
+    const joystickZone = document.getElementById('joystickZone');
+    const joystickSvg = document.getElementById('joystickSvg');
+    const spiderMasterGroup = document.getElementById('spiderMasterGroup');
+    const spiderTrail = document.getElementById('spiderTrail');
+    const headingReadout = document.getElementById('headingReadout');
+    const teleSpeed = document.getElementById('teleSpeed');
+    const teleLegsGround = document.getElementById('teleLegsGround');
+    const teleOdom = document.getElementById('teleOdom');
+    const radarObstacleBadge = document.getElementById('radarObstacleBadge');
+    const radarCoordsLabel = document.getElementById('radarCoordsLabel');
+    const radarZoomLabel = document.getElementById('radarZoomLabel');
+    const mainControlArea = document.getElementById('mainControlArea');
+    const estopBanner = document.getElementById('estopBanner');
+    const estopBtn = document.getElementById('estopBtn');
+    const estopBtnText = document.getElementById('estopBtnText');
+    const armedBadge = document.getElementById('armedBadge');
+
+    const SVG_CENTER = 100;
+    const MAX_RADIUS = 72;
+    let isDragging = false;
+    let currentPos = { x: SVG_CENTER, y: SVG_CENTER };
+    let joyInput = { vx: 0, vy: 0, force: 0, angleDeg: 0 };
+
+    function updateJoystickPosition(svgX, svgY, animate = false) {
+      if (animate) {
+        knob.classList.add('knob-smooth');
+        knob.classList.remove('knob-dragging');
+      } else {
+        knob.classList.remove('knob-smooth');
+        knob.classList.add('knob-dragging');
+      }
+      currentPos.x = svgX;
+      currentPos.y = svgY;
+      knob.setAttribute('transform', `translate(${svgX}, ${svgY})`);
+      vectorLine.setAttribute('x2', svgX);
+      vectorLine.setAttribute('y2', svgY);
+
+      const dx = svgX - SVG_CENTER;
+      const dy = svgY - SVG_CENTER;
+      const distance = Math.hypot(dx, dy);
+
+      if (distance < 4) {
+        vectorArc.setAttribute('d', `M 100 100 L 100 100`);
+      } else {
+        const midX = SVG_CENTER + dx * 0.45;
+        const midY = SVG_CENTER + dy * 0.45;
+        vectorArc.setAttribute('d', `M 100 100 Q ${midX} ${midY} ${svgX} ${svgY}`);
+      }
+
+      let rawForcePercent = Math.min(100, Math.round((distance / MAX_RADIUS) * 100));
+      if (distance < 5) rawForcePercent = 0;
+
+      let angleDeg = 0;
+      if (rawForcePercent > 0) {
+        angleDeg = Math.round((Math.atan2(dx, -dy) * 180) / Math.PI);
+        if (angleDeg < 0) angleDeg += 360;
+        joyInput.vx = dx / MAX_RADIUS;
+        joyInput.vy = dy / MAX_RADIUS;
+        const mag = Math.hypot(joyInput.vx, joyInput.vy);
+        if (mag > 1) { joyInput.vx /= mag; joyInput.vy /= mag; }
+        joyInput.force = rawForcePercent / 100;
+        joyInput.angleDeg = angleDeg;
+        world.waypoint = null;
+      } else {
+        joyInput.vx = 0;
+        joyInput.vy = 0;
+        joyInput.force = 0;
+      }
+
+      readoutAngle.innerText = `ÁNGULO ${String(angleDeg).padStart(3, '0')}°`;
+      readoutForce.innerText = `FUERZA ${String(rawForcePercent).padStart(2, '0')} %`;
+    }
+
+    function getPointerSvgCoords(e) {
+      const rect = joystickSvg.getBoundingClientRect();
+      const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+      const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+      let x = ((clientX - rect.left) / rect.width) * 200;
+      let y = ((clientY - rect.top) / rect.height) * 200;
+      let dx = x - SVG_CENTER;
+      let dy = y - SVG_CENTER;
+      let dist = Math.hypot(dx, dy);
+      if (dist > MAX_RADIUS) {
+        const ratio = MAX_RADIUS / dist;
+        dx *= ratio;
+        dy *= ratio;
+        x = SVG_CENTER + dx;
+        y = SVG_CENTER + dy;
+      }
+      return { x, y, dist };
+    }
+
+    joystickZone.addEventListener('pointerdown', (e) => {
+      if (isEstop) return;
+      isDragging = true;
+      joystickZone.setPointerCapture(e.pointerId);
+      clearActiveStatePresets();
+      const coords = getPointerSvgCoords(e);
+      updateJoystickPosition(coords.x, coords.y, false);
+    });
+
+    joystickZone.addEventListener('pointermove', (e) => {
+      if (!isDragging || isEstop) return;
+      const coords = getPointerSvgCoords(e);
+      updateJoystickPosition(coords.x, coords.y, false);
+    });
+
+    function handlePointerRelease(e) {
+      if (!isDragging) return;
+      isDragging = false;
+      try { if (joystickZone.hasPointerCapture(e.pointerId)) joystickZone.releasePointerCapture(e.pointerId); } catch (err) {}
+      if (!isLockedHeading) {
+        updateJoystickPosition(SVG_CENTER, SVG_CENTER, true);
+      } else {
+        pushLog('[PILOTO]', `Rumbo anclado en: ${readoutAngle.innerText}`, 'cyan');
+      }
+    }
+    joystickZone.addEventListener('pointerup', handlePointerRelease);
+    joystickZone.addEventListener('pointercancel', handlePointerRelease);
+
+    const keysPressed = {};
+    window.addEventListener('keydown', (e) => {
+      if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+      keysPressed[e.key.toLowerCase()] = true;
+    });
+    window.addEventListener('keyup', (e) => {
+      keysPressed[e.key.toLowerCase()] = false;
+    });
+
+    function clearActiveStatePresets() {
+      ['btnStateA', 'btnStateB', 'btnStateC', 'btnStateD', 'btnStateE', 'btnStateF', 'btnStateG'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.className = "px-2 py-0.5 rounded text-[10px] font-mono font-semibold transition text-slate-400 hover:text-white";
+      });
+    }
+
+    const yawTrack = document.getElementById('yawTrack');
+    const yawHandle = document.getElementById('yawHandle');
+    const yawValue = document.getElementById('yawValue');
+    let isYawDragging = false;
+
+    function setYawFromPointer(e) {
+      if (isEstop) return;
+      const rect = yawTrack.getBoundingClientRect();
+      const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+      let ratio = Math.max(0.1, Math.min(0.9, (clientX - rect.left) / rect.width));
+      yawHandle.style.left = `calc(${ratio * 100}% - 8px)`;
+      currentYawRate = Math.round((ratio - 0.5) * 180);
+      yawValue.innerText = `${currentYawRate >= 0 ? '+' : ''}${currentYawRate.toFixed(1)}°/s`;
+    }
+
+    yawTrack.addEventListener('pointerdown', (e) => {
+      if (e.target.tagName === 'BUTTON' || e.target.closest('button') || isEstop) return;
+      isYawDragging = true;
+      yawTrack.setPointerCapture(e.pointerId);
+      setYawFromPointer(e);
+    });
+    yawTrack.addEventListener('pointermove', (e) => { if (isYawDragging) setYawFromPointer(e); });
+    function releaseYaw(e) {
+      if (!isYawDragging) return;
+      isYawDragging = false;
+      try { if (yawTrack.hasPointerCapture(e.pointerId)) yawTrack.releasePointerCapture(e.pointerId); } catch (err) {}
+      yawHandle.style.left = `calc(50% - 8px)`;
+      currentYawRate = 0;
+      yawValue.innerText = `0.0°/s`;
+    }
+    yawTrack.addEventListener('pointerup', releaseYaw);
+    yawTrack.addEventListener('pointercancel', releaseYaw);
+
+    function applyYawStep(dir) {
+      if (isEstop) return;
+      world.spider.heading = (world.spider.heading + dir * 22.5 + 360) % 360;
+      yawValue.innerText = `${dir > 0 ? '+45.0' : '-45.0'}°/s`;
+      yawHandle.style.left = dir > 0 ? `calc(80% - 8px)` : `calc(20% - 8px)`;
+      pushLog('[GIRO]', `Rotando ${dir > 0 ? 'sentido horario (CW)' : 'sentido antihorario (CCW)'}`, 'cyan');
+      setTimeout(() => { yawHandle.style.left = `calc(50% - 8px)`; yawValue.innerText = `0.0°/s`; }, 350);
+    }
+
+    function toggleHeadingLock() {
+      isLockedHeading = !isLockedHeading;
+      const led = document.getElementById('lockStatusLed');
+      if (isLockedHeading) {
+        led.className = "w-2 h-2 rounded-full bg-hud-cyan shadow-glow-cyan-sm";
+        pushLog('[PILOTO]', 'Bloqueo de rumbo angular FIJADO', 'cyan');
+      } else {
+        led.className = "w-2 h-2 rounded-full bg-slate-600";
+        pushLog('[PILOTO]', 'Bloqueo de rumbo LIBERADO', 'cyan');
+        if (!isDragging) updateJoystickPosition(SVG_CENTER, SVG_CENTER, true);
+      }
+    }
+
+    function toggleFineControl() {
+      isFineMode = !isFineMode;
+      const led = document.getElementById('fineStatusLed');
+      if (isFineMode) {
+        led.className = "w-2 h-2 rounded-full bg-hud-emerald shadow-glow-emerald";
+        pushLog('[MODO]', 'Sensibilidad de joystick: MODO FINO (x0.55)', 'emerald');
+      } else {
+        led.className = "w-2 h-2 rounded-full bg-slate-600";
+        pushLog('[MODO]', 'Sensibilidad de joystick: MODO TURBO (x1.0)', 'cyan');
+      }
+    }
+
+    function selectGait(gait) {
+      currentGait = gait;
+      ['tripode', 'ola', 'ondulante'].forEach(g => {
+        const btn = document.getElementById(`gait${g.charAt(0).toUpperCase() + g.slice(1)}`);
+        if (btn) {
+          btn.className = g === gait
+            ? "py-1.5 px-1 rounded-md bg-hud-cyan/20 border border-hud-cyan text-hud-cyan font-bold text-center transition"
+            : "py-1.5 px-1 rounded-md bg-slate-900 border border-hud-border text-slate-400 font-bold text-center hover:text-white transition";
+        }
+      });
+      pushLog('[MARCHA]', `Patrón de marcha cambiado a: ${gait.toUpperCase()}`, 'cyan');
+    }
+
+    function setPose(pose) {
+      currentPose = pose;
+      const poseMap = { stand: 'poseBtnStand', sit: 'poseBtnSit', wave: 'poseBtnWave', dance: 'poseBtnDance' };
+      Object.entries(poseMap).forEach(([k, id]) => {
+        const el = document.getElementById(id);
+        if (el) {
+          if (k === pose) el.classList.add('bg-hud-cyan/25', 'border-hud-cyan', 'text-hud-cyan');
+          else el.classList.remove('bg-hud-cyan/25', 'border-hud-cyan', 'text-hud-cyan');
+        }
+      });
+      if (pose === 'stand') {
+        document.getElementById('valBodyHeight').innerText = "160 mm";
+        pushLog('[POSE]', 'Ejecutada postura: LEVANTARSE (chasis a 160 mm)', 'emerald');
+      } else if (pose === 'sit') {
+        document.getElementById('valBodyHeight').innerText = "65 mm";
+        pushLog('[POSE]', 'Ejecutada postura: SENTARSE (modo reposo a 65 mm)', 'amber');
+      } else if (pose === 'wave') {
+        pushLog('[POSE]', 'Ejecutada cinemática: SALUDAR con Pata R2', 'cyan');
+      } else if (pose === 'dance') {
+        pushLog('[POSE]', 'Ejecutada rutina rítmica: BAILE HEXÁPODO', 'cyan');
+      }
+    }
+
+    function updateSpeedLimit(val) {
+      currentSpeedMax = Number(((val / 100) * 1.5).toFixed(2));
+      document.getElementById('speedLimitVal').innerText = `${currentSpeedMax.toFixed(2)} m/s ${val == 100 ? '(MAX)' : ''}`;
+    }
+
+    const baseLegs = [
+      { id: 1, hip: [140, 85], knee: [105, 60], ankle: [65, 40], tip: [45, 30], phase: 0 },
+      { id: 2, hip: [200, 85], knee: [235, 60], ankle: [275, 40], tip: [295, 30], phase: Math.PI },
+      { id: 3, hip: [135, 110], knee: [90, 110], ankle: [50, 115], tip: [25, 120], phase: Math.PI },
+      { id: 4, hip: [205, 110], knee: [250, 110], ankle: [290, 115], tip: [315, 120], phase: 0 },
+      { id: 5, hip: [140, 135], knee: [105, 160], ankle: [70, 180], tip: [45, 195], phase: 0 },
+      { id: 6, hip: [200, 135], knee: [235, 160], ankle: [270, 180], tip: [295, 195], phase: Math.PI }
+    ];
+
+    function animateSpiderChassis(timeSec, speedNorm) {
+      spiderMasterGroup.setAttribute('transform', `rotate(${world.spider.heading.toFixed(1)} 170 110)`);
+      let groundedCount = 0;
+
+      baseLegs.forEach((leg, idx) => {
+        let phaseOffset = leg.phase;
+        if (currentGait === 'ola') phaseOffset = (idx / 6) * Math.PI * 2;
+        else if (currentGait === 'ondulante') phaseOffset = (idx % 3) * (Math.PI * 2 / 3);
+
+        let swingY = 0;
+        let swingX = 0;
+        let isLifted = false;
+
+        if (currentPose === 'wave' && leg.id === 2 && speedNorm < 0.05) {
+          swingX = Math.sin(timeSec * 6) * 14;
+          swingY = -12 + Math.cos(timeSec * 6) * 8;
+          isLifted = true;
+        } else if (currentPose === 'dance' && speedNorm < 0.05) {
+          swingY = Math.sin(timeSec * 5 + phaseOffset) * 10;
+          swingX = Math.cos(timeSec * 5 + phaseOffset) * 6;
+          isLifted = Math.sin(timeSec * 5 + phaseOffset) > 0.3;
+        } else if (speedNorm > 0.03) {
+          const freq = currentGait === 'tripode' ? 11 : (currentGait === 'ola' ? 7 : 9);
+          const cycle = Math.sin(timeSec * freq + phaseOffset);
+          const lift = Math.cos(timeSec * freq + phaseOffset);
+          swingY = cycle * 11 * Math.min(1, speedNorm * 1.4);
+          isLifted = lift > 0.15;
+        }
+
+        if (!isLifted) groundedCount++;
+
+        const kx = leg.knee[0] + swingX * 0.4;
+        const ky = leg.knee[1] + swingY * 0.45;
+        const ax = leg.ankle[0] + swingX * 0.75;
+        const ay = leg.ankle[1] + swingY * 0.75;
+        const tx = leg.tip[0] + swingX;
+        const ty = leg.tip[1] + swingY;
+
+        const pathEl = document.getElementById(`leg${leg.id}Path`);
+        const kneeEl = document.getElementById(`leg${leg.id}Knee`);
+        const ankleEl = document.getElementById(`leg${leg.id}Ankle`);
+        const tipEl = document.getElementById(`leg${leg.id}Tip`);
+
+        if (pathEl) pathEl.setAttribute('d', `M ${leg.hip[0]} ${leg.hip[1]} L ${kx.toFixed(1)} ${ky.toFixed(1)} L ${ax.toFixed(1)} ${ay.toFixed(1)} L ${tx.toFixed(1)} ${ty.toFixed(1)}`);
+        if (kneeEl) { kneeEl.setAttribute('cx', kx.toFixed(1)); kneeEl.setAttribute('cy', ky.toFixed(1)); }
+        if (ankleEl) { ankleEl.setAttribute('cx', ax.toFixed(1)); ankleEl.setAttribute('cy', ay.toFixed(1)); }
+        if (tipEl) {
+          tipEl.setAttribute('cx', tx.toFixed(1));
+          tipEl.setAttribute('cy', ty.toFixed(1));
+          tipEl.setAttribute('fill', isLifted ? '#64748B' : '#10B981');
+          tipEl.setAttribute('r', isLifted ? '4' : '5');
+        }
+        if (pathEl) pathEl.setAttribute('stroke', isLifted ? '#64748B' : '#10B981');
+      });
+
+      teleLegsGround.innerText = `${groundedCount}/6`;
+      spiderTrail.setAttribute('opacity', speedNorm > 0.05 ? (0.12 + speedNorm * 0.28).toFixed(2) : '0.04');
+    }
+
+    const radarCanvas = document.getElementById('radarCanvas');
+    const ctx = radarCanvas.getContext('2d');
+    let sweepAngle = 0;
+    let isPanningMap = false;
+    let panStart = { x: 0, y: 0 };
+    let pointerDownPos = { x: 0, y: 0 };
+    let isRadarExpanded = false;
+
+    function resizeRadarCanvas() {
+      const rect = radarCanvas.parentElement.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      radarCanvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      radarCanvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    window.addEventListener('resize', resizeRadarCanvas);
+    setTimeout(resizeRadarCanvas, 50);
+
+    function worldToScreen(wx, wy, w, h) {
+      const sx = w / 2 + (wx - world.camera.x) * world.camera.zoom;
+      const sy = h / 2 + (wy - world.camera.y) * world.camera.zoom;
+      return { x: sx, y: sy };
+    }
+
+    function screenToWorld(sx, sy, w, h) {
+      const wx = world.camera.x + (sx - w / 2) / world.camera.zoom;
+      const wy = world.camera.y + (sy - h / 2) / world.camera.zoom;
+      return { x: wx, y: wy };
+    }
+
+    radarCanvas.addEventListener('pointerdown', (e) => {
+      isPanningMap = true;
+      pointerDownPos = { x: e.clientX, y: e.clientY };
+      panStart = { x: e.clientX, y: e.clientY };
+      radarCanvas.setPointerCapture(e.pointerId);
+    });
+
+    radarCanvas.addEventListener('pointermove', (e) => {
+      if (!isPanningMap) return;
+      const dx = e.clientX - panStart.x;
+      const dy = e.clientY - panStart.y;
+      if (Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y) > 5) {
+        world.camera.follow = false;
+        updateFollowBtnUI();
+        world.camera.x -= dx / world.camera.zoom;
+        world.camera.y -= dy / world.camera.zoom;
+      }
+      panStart = { x: e.clientX, y: e.clientY };
+    });
+
+    radarCanvas.addEventListener('pointerup', (e) => {
+      if (!isPanningMap) return;
+      isPanningMap = false;
+      try { if (radarCanvas.hasPointerCapture(e.pointerId)) radarCanvas.releasePointerCapture(e.pointerId); } catch (err) {}
+
+      if (Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y) <= 5 && !isEstop) {
+        const rect = radarCanvas.getBoundingClientRect();
+        const wPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height);
+        const clampedX = Math.max(-world.halfSize + 0.6, Math.min(world.halfSize - 0.6, wPos.x));
+        const clampedY = Math.max(-world.halfSize + 0.6, Math.min(world.halfSize - 0.6, wPos.y));
+        world.waypoint = { x: clampedX, y: clampedY };
+        clearActiveStatePresets();
+        pushLog('[NAVEGACIÓN]', `Waypoint fijado en X ${clampedX >= 0 ? '+' : ''}${clampedX.toFixed(2)}m, Y ${(-clampedY) >= 0 ? '+' : ''}${(-clampedY).toFixed(2)}m`, 'cyan');
+      }
+    });
+
+    radarCanvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.15 : 0.87;
+      world.camera.zoom = Math.max(14, Math.min(85, world.camera.zoom * factor));
+      radarZoomLabel.innerText = `SECTOR 24×24m · ${(world.camera.zoom / 32).toFixed(1)}x`;
+    }, { passive: false });
+
+    function updateFollowBtnUI() {
+      const btn = document.getElementById('btnFollowCam');
+      if (!btn) return;
+      btn.className = world.camera.follow
+        ? "px-2 py-0.5 rounded bg-hud-cyan/20 border border-hud-cyan text-hud-cyan font-bold transition"
+        : "px-2 py-0.5 rounded bg-slate-900 border border-hud-border text-slate-300 hover:text-hud-cyan transition";
+    }
+
+    function toggleFollowCam() {
+      world.camera.follow = !world.camera.follow;
+      if (world.camera.follow) {
+        world.camera.x = world.spider.x;
+        world.camera.y = world.spider.y;
+        pushLog('[RADAR]', 'Cámara centrada y bloqueada sobre ARACNO-6', 'cyan');
+      } else {
+        pushLog('[RADAR]', 'Cámara libre activada (arrastra el mapa para explorar)', 'cyan');
+      }
+      updateFollowBtnUI();
+    }
+
+    function clearRadarTrail() {
+      world.trail = [{ x: world.spider.x, y: world.spider.y }];
+      pushLog('[RADAR]', 'Memoria de persistencia de estela borrada', 'cyan');
+    }
+
+    function returnToBase() {
+      if (isEstop) return;
+      world.waypoint = { x: world.base.x, y: world.base.y };
+      world.camera.follow = true;
+      updateFollowBtnUI();
+      pushLog('[AUTÓNOMO]', 'Ruta de retorno a BASE iniciada — Piloto automático activo', 'emerald');
+    }
+
+    function toggleExpandRadar() {
+      isRadarExpanded = !isRadarExpanded;
+      const chassisPanel = document.getElementById('chassisPanel');
+      const btn = document.getElementById('btnExpandRadar');
+      if (isRadarExpanded) {
+        chassisPanel.classList.add('hidden');
+        btn.innerText = '❐';
+      } else {
+        chassisPanel.classList.remove('hidden');
+        btn.innerText = '⛶';
+      }
+      setTimeout(resizeRadarCanvas, 30);
+    }
+
+    function resolveCollisions(nx, ny) {
+      const r = world.spider.radius;
+      const limit = world.halfSize - r;
+      nx = Math.max(-limit, Math.min(limit, nx));
+      ny = Math.max(-limit, Math.min(limit, ny));
+
+      for (const obs of world.obstacles) {
+        if (obs.type === 'circle') {
+          const dx = nx - obs.x;
+          const dy = ny - obs.y;
+          const dist = Math.hypot(dx, dy);
+          const minDist = r + obs.r;
+          if (dist < minDist && dist > 0.0001) {
+            const overlap = minDist - dist;
+            nx += (dx / dist) * overlap;
+            ny += (dy / dist) * overlap;
+          }
+        } else if (obs.type === 'rect') {
+          const halfW = obs.w / 2;
+          const halfH = obs.h / 2;
+          const closestX = Math.max(obs.x - halfW, Math.min(nx, obs.x + halfW));
+          const closestY = Math.max(obs.y - halfH, Math.min(ny, obs.y + halfH));
+          const dx = nx - closestX;
+          const dy = ny - closestY;
+          const dist = Math.hypot(dx, dy);
+          if (dist < r) {
+            if (dist > 0.0001) {
+              const overlap = r - dist;
+              nx += (dx / dist) * overlap;
+              ny += (dy / dist) * overlap;
+            } else {
+              ny -= r;
+            }
+          }
+        }
+      }
+      return { x: nx, y: ny };
+    }
+
+    function computeFrontalLidarDistance() {
+      const rad = (world.spider.heading * Math.PI) / 180;
+      const dirX = Math.sin(rad);
+      const dirY = -Math.cos(rad);
+      const maxRange = 3.0;
+      const step = 0.08;
+
+      for (let d = world.spider.radius; d <= maxRange; d += step) {
+        const px = world.spider.x + dirX * d;
+        const py = world.spider.y + dirY * d;
+
+        if (Math.abs(px) >= world.halfSize || Math.abs(py) >= world.halfSize) {
+          return d - world.spider.radius;
+        }
+        for (const obs of world.obstacles) {
+          if (obs.type === 'circle') {
+            if (Math.hypot(px - obs.x, py - obs.y) <= obs.r) {
+              return Math.max(0, d - world.spider.radius);
+            }
+          } else if (obs.type === 'rect') {
+            if (Math.abs(px - obs.x) <= obs.w / 2 && Math.abs(py - obs.y) <= obs.h / 2) {
+              return Math.max(0, d - world.spider.radius);
+            }
+          }
+        }
+      }
+      return null;
+    }
+
+    let lastObstacleWarn = false;
+
+    function updatePhysics(dt) {
+      if (isEstop) {
+        teleSpeed.innerText = "0.00";
+        return;
+      }
+
+      let kx = 0, ky = 0;
+      if (keysPressed['w'] || keysPressed['arrowup']) ky -= 1;
+      if (keysPressed['s'] || keysPressed['arrowdown']) ky += 1;
+      if (keysPressed['a'] || keysPressed['arrowleft']) kx -= 1;
+      if (keysPressed['d'] || keysPressed['arrowright']) kx += 1;
+
+      if (keysPressed['q']) world.spider.heading = (world.spider.heading - 95 * dt + 360) % 360;
+      if (keysPressed['e']) world.spider.heading = (world.spider.heading + 95 * dt + 360) % 360;
+
+      if (currentYawRate !== 0) {
+        world.spider.heading = (world.spider.heading + currentYawRate * dt + 360) % 360;
+      }
+
+      let moveVx = 0;
+      let moveVy = 0;
+      let speedNorm = 0;
+
+      if (kx !== 0 || ky !== 0) {
+        world.waypoint = null;
+        const mag = Math.hypot(kx, ky);
+        moveVx = kx / mag;
+        moveVy = ky / mag;
+        speedNorm = 1.0;
+        const targetDeg = (Math.atan2(moveVx, -moveVy) * 180 / Math.PI + 360) % 360;
+        let diff = ((targetDeg - world.spider.heading + 540) % 360) - 180;
+        world.spider.heading = (world.spider.heading + diff * Math.min(1, dt * 8) + 360) % 360;
+      } else if (joyInput.force > 0.02) {
+        moveVx = joyInput.vx * joyInput.force;
+        moveVy = joyInput.vy * joyInput.force;
+        speedNorm = joyInput.force;
+        if (currentState !== 'C') {
+          let diff = ((joyInput.angleDeg - world.spider.heading + 540) % 360) - 180;
+          world.spider.heading = (world.spider.heading + diff * Math.min(1, dt * 7) + 360) % 360;
+        }
+      } else if (world.waypoint) {
+        const dx = world.waypoint.x - world.spider.x;
+        const dy = world.waypoint.y - world.spider.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < 0.18) {
+          world.waypoint = null;
+          pushLog('[NAVEGACIÓN]', 'Destino alcanzado con éxito', 'emerald');
+        } else {
+          moveVx = dx / dist;
+          moveVy = dy / dist;
+          speedNorm = Math.min(1.0, dist * 1.2);
+          const targetDeg = (Math.atan2(moveVx, -moveVy) * 180 / Math.PI + 360) % 360;
+          let diff = ((targetDeg - world.spider.heading + 540) % 360) - 180;
+          world.spider.heading = (world.spider.heading + diff * Math.min(1, dt * 8) + 360) % 360;
+        }
+      }
+
+      if (currentState === 'D') {
+        const t = performance.now() * 0.001;
+        moveVx = Math.cos(t);
+        moveVy = Math.sin(t);
+        speedNorm = 0.65;
+        world.spider.heading = (Math.atan2(moveVx, -moveVy) * 180 / Math.PI + 360) % 360;
+      }
+
+      const fineMult = isFineMode ? 0.65 : 1.0;
+      const gaitMult = currentGait === 'tripode' ? 1.15 : (currentGait === 'ondulante' ? 0.9 : 0.7);
+      const actualSpeed = speedNorm * currentSpeedMax * fineMult * gaitMult;
+
+      if (actualSpeed > 0.005) {
+        const prevX = world.spider.x;
+        const prevY = world.spider.y;
+        const nextPos = resolveCollisions(
+          world.spider.x + moveVx * actualSpeed * dt,
+          world.spider.y + moveVy * actualSpeed * dt
+        );
+        world.spider.x = nextPos.x;
+        world.spider.y = nextPos.y;
+
+        const movedDist = Math.hypot(world.spider.x - prevX, world.spider.y - prevY);
+        missionDistance += movedDist;
+        teleOdom.innerText = `${missionDistance.toFixed(1)} m`;
+
+        const lastPt = world.trail[world.trail.length - 1];
+        if (!lastPt || Math.hypot(world.spider.x - lastPt.x, world.spider.y - lastPt.y) > 0.14) {
+          world.trail.push({ x: world.spider.x, y: world.spider.y });
+          if (world.trail.length > 450) world.trail.shift();
+        }
+      }
+
+      if (world.camera.follow) {
+        world.camera.x += (world.spider.x - world.camera.x) * Math.min(1, dt * 10);
+        world.camera.y += (world.spider.y - world.camera.y) * Math.min(1, dt * 10);
+      }
+
+      teleSpeed.innerText = actualSpeed.toFixed(2);
+      const degInt = Math.round(world.spider.heading) % 360;
+      const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+      const dirLabel = dirs[Math.round(degInt / 45) % 8];
+      headingReadout.innerText = `HEADING ${dirLabel} ${String(degInt).padStart(3, '0')}°`;
+
+      const dispX = world.spider.x;
+      const dispY = -world.spider.y;
+      radarCoordsLabel.innerText = `X ${dispX >= 0 ? '+' : ''}${dispX.toFixed(2)} m · Y ${dispY >= 0 ? '+' : ''}${dispY.toFixed(2)} m`;
+
+      const obsDist = computeFrontalLidarDistance();
+      if (obsDist !== null && obsDist < 1.1) {
+        const cm = Math.round(obsDist * 100);
+        radarObstacleBadge.innerText = `OBSTÁCULO ${cm} cm`;
+        radarObstacleBadge.className = "text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-hud-red/20 text-hud-red border border-hud-red/50 animate-pulse";
+        if (!lastObstacleWarn && cm < 55) {
+          pushLog('[ALERTA]', `Proximidad crítica: Obstáculo detectado a ${cm} cm`, 'red');
+          lastObstacleWarn = true;
+        }
+      } else {
+        radarObstacleBadge.innerText = "VÍA DESPEJADA";
+        radarObstacleBadge.className = "text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-hud-emerald/20 text-hud-emerald border border-hud-emerald/40";
+        lastObstacleWarn = false;
+      }
+
+      animateSpiderChassis(performance.now() * 0.001, actualSpeed / Math.max(0.1, currentSpeedMax));
+      return obsDist;
+    }
+
+    function renderRadar(obsDist) {
+      const rect = radarCanvas.parentElement.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+      if (w <= 0 || h <= 0) return;
+
+      const z = world.camera.zoom;
+      ctx.clearRect(0, 0, w, h);
+
+      ctx.strokeStyle = 'rgba(0, 229, 255, 0.07)';
+      ctx.lineWidth = 1;
+      const startGX = Math.floor(screenToWorld(0, 0, w, h).x);
+      const endGX = Math.ceil(screenToWorld(w, h, w, h).x);
+      const startGY = Math.floor(screenToWorld(0, 0, w, h).y);
+      const endGY = Math.ceil(screenToWorld(w, h, w, h).y);
+
+      ctx.beginPath();
+      for (let gx = startGX; gx <= endGX; gx++) {
+        const sx = worldToScreen(gx, 0, w, h).x;
+        ctx.moveTo(sx, 0);
+        ctx.lineTo(sx, h);
+      }
+      for (let gy = startGY; gy <= endGY; gy++) {
+        const sy = worldToScreen(0, gy, w, h).y;
+        ctx.moveTo(0, sy);
+        ctx.lineTo(w, sy);
+      }
+      ctx.stroke();
+
+      const topLeft = worldToScreen(-world.halfSize, -world.halfSize, w, h);
+      const botRight = worldToScreen(world.halfSize, world.halfSize, w, h);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(0, 229, 255, 0.45)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 4]);
+      ctx.strokeRect(topLeft.x, topLeft.y, botRight.x - topLeft.x, botRight.y - topLeft.y);
+      ctx.restore();
+
+      const baseSc = worldToScreen(world.base.x, world.base.y, w, h);
+      const baseR = world.base.r * z;
+      ctx.save();
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.10)';
+      ctx.strokeStyle = 'rgba(16, 185, 129, 0.8)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.arc(baseSc.x, baseSc.y, baseR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#10B981';
+      ctx.font = 'bold 9px "JetBrains Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('BASE', baseSc.x, baseSc.y + 3);
+      ctx.restore();
+
+      for (const poi of world.pois) {
+        const pSc = worldToScreen(poi.x, poi.y, w, h);
+        ctx.save();
+        ctx.strokeStyle = 'rgba(0, 229, 255, 0.45)';
+        ctx.fillStyle = 'rgba(0, 229, 255, 0.7)';
+        ctx.font = '8px "JetBrains Mono", monospace';
+        ctx.beginPath();
+        ctx.moveTo(pSc.x, pSc.y - 5);
+        ctx.lineTo(pSc.x + 5, pSc.y);
+        ctx.lineTo(pSc.x, pSc.y + 5);
+        ctx.lineTo(pSc.x - 5, pSc.y);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.fillText(poi.name, pSc.x + 8, pSc.y + 3);
+        ctx.restore();
+      }
+
+      for (const obs of world.obstacles) {
+        const oSc = worldToScreen(obs.x, obs.y, w, h);
+        ctx.save();
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.22)';
+        ctx.strokeStyle = '#EF4444';
+        ctx.lineWidth = 1.5;
+        if (obs.type === 'circle') {
+          ctx.beginPath();
+          ctx.arc(oSc.x, oSc.y, obs.r * z, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        } else if (obs.type === 'rect') {
+          const rw = obs.w * z;
+          const rh = obs.h * z;
+          ctx.fillRect(oSc.x - rw / 2, oSc.y - rh / 2, rw, rh);
+          ctx.strokeRect(oSc.x - rw / 2, oSc.y - rh / 2, rw, rh);
+        }
+        if (z > 24 && obs.label) {
+          ctx.fillStyle = 'rgba(239, 68, 68, 0.85)';
+          ctx.font = '7px "JetBrains Mono", monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText(obs.label, oSc.x, oSc.y - (obs.type === 'circle' ? obs.r * z + 4 : (obs.h * z) / 2 + 4));
+        }
+        ctx.restore();
+      }
+
+      if (world.trail.length > 1) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(0, 229, 255, 0.45)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        world.trail.forEach((pt, idx) => {
+          const s = worldToScreen(pt.x, pt.y, w, h);
+          if (idx === 0) ctx.moveTo(s.x, s.y);
+          else ctx.lineTo(s.x, s.y);
+        });
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      const spSc = worldToScreen(world.spider.x, world.spider.y, w, h);
+
+      if (world.waypoint) {
+        const wpSc = worldToScreen(world.waypoint.x, world.waypoint.y, w, h);
+        ctx.save();
+        ctx.strokeStyle = '#00E5FF';
+        ctx.lineWidth = 1.2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(spSc.x, spSc.y);
+        ctx.lineTo(wpSc.x, wpSc.y);
+        ctx.stroke();
+
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.arc(wpSc.x, wpSc.y, 7 + Math.sin(performance.now() * 0.008) * 2, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = '#00E5FF';
+        ctx.beginPath();
+        ctx.arc(wpSc.x, wpSc.y, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      ctx.save();
+      [1, 2, 3].forEach((m, idx) => {
+        ctx.strokeStyle = `rgba(0, 229, 255, ${0.28 - idx * 0.06})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(spSc.x, spSc.y, m * z, 0, Math.PI * 2);
+        ctx.stroke();
+        if (z >= 20) {
+          ctx.fillStyle = 'rgba(0, 229, 255, 0.6)';
+          ctx.font = '7px "JetBrains Mono", monospace';
+          ctx.fillText(`${m}m`, spSc.x + 3, spSc.y - m * z + 9);
+        }
+      });
+
+      const lidarR = 3 * z;
+      const grad = ctx.createRadialGradient(spSc.x, spSc.y, 2, spSc.x, spSc.y, lidarR);
+      grad.addColorStop(0, 'rgba(0, 229, 255, 0.35)');
+      grad.addColorStop(1, 'rgba(0, 229, 255, 0.0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(spSc.x, spSc.y);
+      ctx.arc(spSc.x, spSc.y, lidarR, sweepAngle - 0.55, sweepAngle);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(0, 229, 255, 0.85)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(spSc.x, spSc.y);
+      ctx.lineTo(spSc.x + Math.cos(sweepAngle) * lidarR, spSc.y + Math.sin(sweepAngle) * lidarR);
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.save();
+      ctx.translate(spSc.x, spSc.y);
+      ctx.rotate((world.spider.heading * Math.PI) / 180);
+
+      const isDanger = obsDist !== null && obsDist < 1.1;
+      const coneLen = (isDanger ? (obsDist + world.spider.radius) : 1.35) * z;
+      ctx.fillStyle = isDanger ? 'rgba(239, 68, 68, 0.35)' : 'rgba(0, 229, 255, 0.14)';
+      ctx.strokeStyle = isDanger ? 'rgba(239, 68, 68, 0.8)' : 'rgba(0, 229, 255, 0.45)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 2]);
+      ctx.beginPath();
+      ctx.moveTo(0, -4);
+      ctx.lineTo(-coneLen * 0.45, -coneLen);
+      ctx.lineTo(coneLen * 0.45, -coneLen);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.strokeStyle = '#00E5FF';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(-5, -3); ctx.lineTo(-10, -7);
+      ctx.moveTo(-6, 0);  ctx.lineTo(-11, 0);
+      ctx.moveTo(-5, 3);  ctx.lineTo(-10, 7);
+      ctx.moveTo(5, -3);  ctx.lineTo(10, -7);
+      ctx.moveTo(6, 0);   ctx.lineTo(11, 0);
+      ctx.moveTo(5, 3);   ctx.lineTo(10, 7);
+      ctx.stroke();
+
+      ctx.fillStyle = '#00E5FF';
+      ctx.strokeStyle = '#0F1419';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.moveTo(0, -10);
+      ctx.lineTo(-4, -4);
+      ctx.lineTo(4, -4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      ctx.save();
+      ctx.translate(w - 22, 22);
+      ctx.fillStyle = 'rgba(15, 20, 25, 0.85)';
+      ctx.strokeStyle = 'rgba(0, 229, 255, 0.4)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(0, 0, 12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#00E5FF';
+      ctx.font = 'bold 7px "JetBrains Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('N', 0, -2);
+      ctx.beginPath();
+      ctx.moveTo(0, -10);
+      ctx.lineTo(-2.5, -5);
+      ctx.lineTo(2.5, -5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    let lastFrameTime = performance.now();
+    function mainLoop(now) {
+      const dt = Math.min(0.05, (now - lastFrameTime) / 1000);
+      lastFrameTime = now;
+      sweepAngle = (sweepAngle + dt * 2.2) % (Math.PI * 2);
+      const obsDist = updatePhysics(dt);
+      renderRadar(obsDist);
+      requestAnimationFrame(mainLoop);
+    }
+    requestAnimationFrame(mainLoop);
+
+    function setSystemState(state) {
+      currentState = state;
+      ['btnStateA', 'btnStateB', 'btnStateC', 'btnStateD', 'btnStateE', 'btnStateF', 'btnStateG'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.className = "px-2 py-0.5 rounded text-[10px] font-mono font-semibold transition text-slate-400 hover:text-white";
+      });
+      const activeBtn = document.getElementById(`btnState${state}`);
+      if (activeBtn) activeBtn.className = "px-2 py-0.5 rounded text-[10px] font-mono font-semibold transition bg-hud-cyan/20 text-hud-cyan border border-hud-cyan/50";
+
+      if (state !== 'G') {
+        isEstop = false;
+        estopBanner.classList.add('hidden');
+        mainControlArea.classList.remove('opacity-40', 'pointer-events-none', 'filter');
+        estopBtn.className = "h-10 px-4 min-w-[170px] min-h-[44px] rounded-lg bg-gradient-to-r from-red-600 via-hud-red to-red-600 hover:from-red-500 hover:to-red-500 text-white font-mono font-extrabold text-xs tracking-widest uppercase flex items-center justify-center gap-2 shadow-glow-red border border-red-300/40 transition active:scale-95";
+        estopBtnText.innerText = "PARO DE EMERGENCIA";
+        armedBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-hud-emerald animate-pulse"></span> ARMED`;
+        armedBadge.className = "inline-flex items-center gap-1 px-2 py-0.5 rounded bg-hud-emerald/15 border border-hud-emerald/40 text-[10px] font-mono font-bold tracking-widest text-hud-emerald";
+      }
+
+      if (state === 'A') {
+        world.waypoint = null;
+        updateJoystickPosition(100, 100, true);
+        pushLog('[SISTEMA]', 'Robot estático — Posición neutra con 6 apoyos en suelo', 'emerald');
+      } else if (state === 'B') {
+        updateJoystickPosition(100, 42, true);
+        pushLog('[MARCHA]', 'Avance continuo hacia el Norte (000°)', 'cyan');
+      } else if (state === 'C') {
+        updateJoystickPosition(158, 100, true);
+        pushLog('[MARCHA]', 'Desplazamiento cangrejo lateral a 90° sin rotación de chasis', 'cyan');
+      } else if (state === 'D') {
+        updateJoystickPosition(145, 55, true);
+        pushLog('[CINEMÁTICA]', 'Patrulla circular autónoma activada', 'cyan');
+      } else if (state === 'E') {
+        updateJoystickPosition(100, 100, true);
+        world.spider.heading = (world.spider.heading + 45) % 360;
+        pushLog('[ROTACIÓN]', 'Giro axial sobre centro de masa +45°', 'cyan');
+      } else if (state === 'F') {
+        world.spider.x = 0.0;
+        world.spider.y = -2.25;
+        world.spider.heading = 0;
+        world.camera.follow = true;
+        updateFollowBtnUI();
+        updateJoystickPosition(100, 100, true);
+        pushLog('[ALERTA]', 'Posicionada frente a BALIZA N-1 para prueba de sensor LiDAR', 'red');
+      } else if (state === 'G') {
+        isEstop = true;
+        world.waypoint = null;
+        updateJoystickPosition(100, 100, true);
+        estopBanner.classList.remove('hidden');
+        mainControlArea.classList.add('opacity-40', 'pointer-events-none', 'filter');
+        estopBtn.className = "h-10 px-4 min-w-[170px] min-h-[44px] rounded-lg bg-white text-hud-red font-mono font-extrabold text-xs tracking-widest uppercase flex items-center justify-center gap-2 shadow-glow-red border-2 border-red-500 transition active:scale-95";
+        estopBtnText.innerText = "REARMAR SISTEMA";
+        armedBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-hud-red"></span> DISARMED`;
+        armedBadge.className = "inline-flex items-center gap-1 px-2 py-0.5 rounded bg-hud-red/20 border border-hud-red text-[10px] font-mono font-bold tracking-widest text-hud-red";
+        pushLog('[EMERGENCIA]', 'PARO DE EMERGENCIA ACCIONADO: Alimentación cortada a servos', 'red');
+      }
+    }
+
+    function toggleEStop() {
+      if (currentState === 'G' || isEstop) setSystemState('A');
+      else setSystemState('G');
+    }
+
+    function pushLog(tag, msg, color) {
+      const now = new Date();
+      const time = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0') + ':' + String(now.getSeconds()).padStart(2, '0');
+      const line1 = document.getElementById('logLine1');
+      const line2 = document.getElementById('logLine2');
+      const line3 = document.getElementById('logLine3');
+      if (line1 && line2 && line3) {
+        line3.innerHTML = line2.innerHTML;
+        line2.innerHTML = line1.innerHTML;
+        let colorClass = "text-hud-cyan";
+        if (color === 'red') colorClass = "text-hud-red";
+        if (color === 'amber') colorClass = "text-hud-amber";
+        if (color === 'emerald') colorClass = "text-hud-emerald";
+        line1.innerHTML = `<span class="text-slate-500">${time}</span> <span class="${colorClass} font-bold">${tag}</span> <span class="text-slate-300">${msg}</span>`;
+      }
+    }
+
+    function toggleTorch() {
+      isTorch = !isTorch;
+      const btn = document.getElementById('torchBtn');
+      if (isTorch) {
+        btn.className = "w-7 h-7 rounded bg-amber-400 text-black border border-amber-300 text-[10px] transition shadow-glow-amber";
+        pushLog('[LUCES]', 'Foco LED frontal encendido (1200 lm)', 'amber');
+      } else {
+        btn.className = "w-7 h-7 rounded bg-slate-900/80 border border-hud-border flex items-center justify-center text-slate-400 hover:text-amber-400 text-[10px] transition";
+        pushLog('[LUCES]', 'Foco LED frontal apagado', 'cyan');
+      }
+    }
+
+    function setCamZoom(zoom) {
+      pushLog('[ÓPTICA]', `Zoom óptico de cámara establecido en ${zoom}`, 'cyan');
+    }
+
+    function executeCommand() {
+      const input = document.getElementById('commandInput');
+      const val = input.value.trim().toLowerCase();
+      if (!val) return;
+      if (val === 'base' || val === 'home') returnToBase();
+      else if (val === 'center' || val === 'reset') {
+        world.spider.x = 0; world.spider.y = 0; world.spider.heading = 0; world.waypoint = null;
+        pushLog('[CMD]', 'Posición reiniciada en origen (0, 0)', 'emerald');
+      } else if (val.includes('wave')) selectGait('ola');
+      else if (val.includes('tripod')) selectGait('tripode');
+      else pushLog('[CMD]', `Ejecutado: "${val}"`, 'emerald');
+      input.value = '';
+    }
+
+    document.getElementById('commandInput')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') executeCommand();
+    });
+  </script>
+</body></html>
