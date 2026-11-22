@@ -2,7 +2,7 @@
 <html class="h-full" lang="es"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
-<title>ARACNO-6 Tactical Command HUD — Open World Radar</title>
+<title>ARACNO-6 Tactical Command HUD — Open World Radar (Mobile & Desktop)</title>
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
@@ -43,11 +43,22 @@
     body {
       background-color: #0F1419;
       color: #E2E8F0;
-      overflow: hidden;
       user-select: none;
       -webkit-user-select: none;
       -webkit-font-smoothing: antialiased;
-      touch-action: none;
+    }
+    @media (min-width: 1024px) {
+      body {
+        overflow: hidden;
+        touch-action: none;
+      }
+    }
+    @media (max-width: 1023px) {
+      body {
+        overflow-y: auto;
+        overflow-x: hidden;
+        touch-action: pan-y;
+      }
     }
     .hud-glass {
       background: rgba(18, 25, 33, 0.85);
@@ -81,15 +92,15 @@
       -webkit-appearance: none;
       appearance: none;
       background: rgba(255, 255, 255, 0.08);
-      height: 5px;
+      height: 6px;
       border-radius: 4px;
       outline: none;
     }
     input[type=range]::-webkit-slider-thumb {
       -webkit-appearance: none;
       appearance: none;
-      width: 14px;
-      height: 14px;
+      width: 16px;
+      height: 16px;
       border-radius: 50%;
       background: #00E5FF;
       cursor: pointer;
@@ -98,35 +109,37 @@
     }
     .knob-dragging { cursor: grabbing !important; transition: none !important; }
     .knob-smooth { transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
-    .yaw-slider-track { touch-action: pan-y; cursor: grab; }
+    .yaw-slider-track { touch-action: none; cursor: grab; }
     .yaw-slider-track:active { cursor: grabbing; }
   </style>
 </head>
-<body class="h-screen w-screen flex flex-col font-sans select-none overflow-hidden relative">
-<div class="hidden absolute top-0 left-0 right-0 z-50 bg-hud-red/90 text-white text-center py-1.5 px-4 font-mono font-bold tracking-widest text-xs uppercase flex items-center justify-center gap-3 alert-pulse border-b-2 border-white/60" id="estopBanner">
-  <i class="w-4 h-4" data-lucide="alert-octagon"></i>
-  <span>ALERTA CRÍTICA: PARO DE EMERGENCIA ACTIVO — ACTUADORES BLOQUEADOS Y ALIMENTACIÓN AISLADA</span>
-  <button class="ml-4 px-3 py-0.5 bg-white text-hud-red hover:bg-slate-100 rounded text-[11px] font-mono tracking-wider font-extrabold uppercase shadow" onclick="setSystemState('A')">REARMAR SISTEMA</button>
+<body class="min-h-screen lg:h-screen w-screen flex flex-col font-sans select-none relative">
+<div class="hidden fixed lg:absolute top-0 left-0 right-0 z-50 bg-hud-red/90 text-white text-center py-2 px-4 font-mono font-bold tracking-widest text-xs uppercase flex flex-wrap items-center justify-center gap-3 alert-pulse border-b-2 border-white/60" id="estopBanner">
+  <div class="flex items-center gap-2">
+    <i class="w-4 h-4" data-lucide="alert-octagon"></i>
+    <span>ALERTA CRÍTICA: PARO DE EMERGENCIA ACTIVO — ACTUADORES BLOQUEADOS</span>
+  </div>
+  <button class="px-3 py-1 bg-white text-hud-red hover:bg-slate-100 rounded text-[11px] font-mono tracking-wider font-extrabold uppercase shadow" onclick="setSystemState('A')">REARMAR SISTEMA</button>
 </div>
 
-<header class="hud-glass-header h-14 shrink-0 px-4 flex items-center justify-between z-30 relative">
-  <div class="flex items-center gap-3.5">
-    <div class="flex items-center gap-2.5">
+<header class="hud-glass-header min-h-[3.5rem] shrink-0 px-3 lg:px-4 py-2 lg:py-0 flex flex-wrap items-center justify-between gap-2 z-30 sticky top-0 lg:relative">
+  <div class="flex items-center gap-2.5 lg:gap-3.5">
+    <div class="flex items-center gap-2 lg:gap-2.5">
       <div class="w-8 h-8 rounded-lg bg-cyan-950/80 border border-hud-cyan/50 flex items-center justify-center text-hud-cyan shadow-glow-cyan-sm">
         <i class="w-5 h-5" data-lucide="shield-alert"></i>
       </div>
       <div class="flex flex-col">
         <div class="flex items-center gap-2">
-          <span class="text-base font-extrabold tracking-wider text-white">ARACNO-6</span>
-          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-hud-emerald/15 border border-hud-emerald/40 text-[10px] font-mono font-bold tracking-widest text-hud-emerald" id="armedBadge">
+          <span class="text-sm lg:text-base font-extrabold tracking-wider text-white">ARACNO-6</span>
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-hud-emerald/15 border border-hud-emerald/40 text-[9px] lg:text-[10px] font-mono font-bold tracking-widest text-hud-emerald" id="armedBadge">
             <span class="w-1.5 h-1.5 rounded-full bg-hud-emerald animate-pulse"></span>
             ARMED
           </span>
         </div>
-        <span class="text-[10px] font-mono tracking-widest text-slate-400">HEXAPOD TACTICAL HUD v4.2 · OPEN WORLD</span>
+        <span class="text-[9px] lg:text-[10px] font-mono tracking-widest text-slate-400">HEXAPOD TACTICAL HUD v4.2 · OPEN WORLD</span>
       </div>
     </div>
-    <div class="h-6 w-px bg-hud-border mx-1"></div>
+    <div class="hidden xl:block h-6 w-px bg-hud-border mx-1"></div>
     <div class="hidden xl:flex items-center gap-1 bg-black/40 p-1 rounded-lg border border-hud-border-subtle">
       <span class="text-[9px] font-mono uppercase text-slate-400 px-1.5 font-bold">ESTADO:</span>
       <button class="px-2 py-0.5 rounded text-[10px] font-mono font-semibold transition bg-hud-cyan/20 text-hud-cyan border border-hud-cyan/40" id="btnStateA" onclick="setSystemState('A')">A. Quieta</button>
@@ -139,22 +152,22 @@
     </div>
   </div>
 
-  <div class="flex items-center gap-5 font-mono text-xs">
-    <div class="flex items-center gap-1.5 text-slate-300 bg-slate-900/60 px-2.5 py-1 rounded border border-hud-border-subtle">
+  <div class="flex items-center gap-2 lg:gap-5 font-mono text-xs">
+    <div class="hidden sm:flex items-center gap-1.5 text-slate-300 bg-slate-900/60 px-2.5 py-1 rounded border border-hud-border-subtle">
       <i class="w-3.5 h-3.5 text-hud-cyan" data-lucide="wifi"></i>
       <span class="text-[11px] font-bold tracking-wider">5.8G</span>
       <span class="text-[10px] text-hud-emerald font-bold tracking-tight">-48 dBm</span>
     </div>
-    <div class="flex items-center gap-1.5 text-slate-300 bg-slate-900/60 px-2.5 py-1 rounded border border-hud-border-subtle">
+    <div class="hidden md:flex items-center gap-1.5 text-slate-300 bg-slate-900/60 px-2.5 py-1 rounded border border-hud-border-subtle">
       <i class="w-3.5 h-3.5 text-hud-cyan" data-lucide="bluetooth"></i>
       <span class="text-[10px] text-slate-300 tracking-wider">BLE 5.3 LINK</span>
     </div>
-    <div class="flex items-center gap-2 bg-slate-900/60 px-2.5 py-1 rounded border border-hud-border-subtle">
+    <div class="flex items-center gap-1.5 lg:gap-2 bg-slate-900/60 px-2 lg:px-2.5 py-1 rounded border border-hud-border-subtle">
       <div class="flex items-center gap-1 text-hud-emerald">
         <i class="w-4 h-4" data-lucide="battery-charging"></i>
         <span class="font-bold text-xs tracking-wider" id="batPct">86%</span>
       </div>
-      <span class="text-[10px] text-slate-400">25.2 V (6S LiPo)</span>
+      <span class="hidden sm:inline text-[10px] text-slate-400">25.2 V (6S LiPo)</span>
     </div>
     <div class="hidden sm:flex items-center gap-1.5 text-slate-300 font-bold bg-slate-900/60 px-2.5 py-1 rounded border border-hud-border-subtle">
       <i class="w-3.5 h-3.5 text-hud-cyan" data-lucide="clock"></i>
@@ -162,28 +175,40 @@
     </div>
   </div>
 
-  <div class="flex items-center gap-3">
-    <button class="h-10 px-4 min-w-[170px] min-h-[44px] rounded-lg bg-gradient-to-r from-red-600 via-hud-red to-red-600 hover:from-red-500 hover:to-red-500 text-white font-mono font-extrabold text-xs tracking-widest uppercase flex items-center justify-center gap-2 shadow-glow-red border border-red-300/40 transition active:scale-95" id="estopBtn" onclick="toggleEStop()">
+  <div class="flex items-center gap-2 lg:gap-3">
+    <button class="h-9 lg:h-10 px-3 lg:px-4 lg:min-w-[170px] min-h-[40px] lg:min-h-[44px] rounded-lg bg-gradient-to-r from-red-600 via-hud-red to-red-600 hover:from-red-500 hover:to-red-500 text-white font-mono font-extrabold text-[11px] lg:text-xs tracking-widest uppercase flex items-center justify-center gap-1.5 lg:gap-2 shadow-glow-red border border-red-300/40 transition active:scale-95" id="estopBtn" onclick="toggleEStop()">
       <i class="w-4 h-4" data-lucide="octagon-alert"></i>
       <span id="estopBtnText">PARO DE EMERGENCIA</span>
     </button>
   </div>
 </header>
 
-<main class="flex-1 min-h-0 p-3 grid grid-cols-12 gap-3 overflow-hidden transition-all duration-300" id="mainControlArea">
-  <!-- COLUMNA IZQUIERDA -->
-  <section class="col-span-3 flex flex-col gap-2.5 h-full min-h-0">
+<!-- BARRA DE ESTADOS TÁCTILES PARA MÓVIL/TABLET -->
+<div class="flex xl:hidden items-center gap-1.5 bg-black/60 px-3 py-1.5 border-b border-hud-border-subtle overflow-x-auto shrink-0 z-20">
+  <span class="text-[9px] font-mono uppercase text-slate-400 font-bold shrink-0">ESTADO:</span>
+  <button class="px-2.5 py-1 rounded text-[10px] font-mono font-semibold transition bg-hud-cyan/20 text-hud-cyan border border-hud-cyan/40 shrink-0" onclick="setSystemState('A')">A. Quieta</button>
+  <button class="px-2.5 py-1 rounded text-[10px] font-mono font-semibold transition text-slate-300 bg-slate-900/80 border border-hud-border-subtle shrink-0" onclick="setSystemState('B')">B. Norte</button>
+  <button class="px-2.5 py-1 rounded text-[10px] font-mono font-semibold transition text-slate-300 bg-slate-900/80 border border-hud-border-subtle shrink-0" onclick="setSystemState('C')">C. Lateral</button>
+  <button class="px-2.5 py-1 rounded text-[10px] font-mono font-semibold transition text-slate-300 bg-slate-900/80 border border-hud-border-subtle shrink-0" onclick="setSystemState('D')">D. Circular</button>
+  <button class="px-2.5 py-1 rounded text-[10px] font-mono font-semibold transition text-slate-300 bg-slate-900/80 border border-hud-border-subtle shrink-0" onclick="setSystemState('E')">E. Giro</button>
+  <button class="px-2.5 py-1 rounded text-[10px] font-mono font-semibold transition text-hud-amber bg-slate-900/80 border border-hud-border-subtle shrink-0" onclick="setSystemState('F')">F. Obstáculo</button>
+  <button class="px-2.5 py-1 rounded text-[10px] font-mono font-semibold transition text-hud-red bg-slate-900/80 border border-hud-border-subtle shrink-0" onclick="setSystemState('G')">G. Paro</button>
+</div>
+
+<main class="flex-1 lg:min-h-0 p-2.5 lg:p-3 flex flex-col lg:grid lg:grid-cols-12 gap-3 lg:overflow-hidden transition-all duration-300" id="mainControlArea">
+  <!-- COLUMNA IZQUIERDA (CONTROLES DE LOCOMOCIÓN) -->
+  <section class="order-2 lg:order-1 lg:col-span-3 flex flex-col gap-2.5 lg:h-full lg:min-h-0">
     <div class="hud-glass p-3 flex-1 flex flex-col justify-between relative overflow-hidden select-none">
       <div class="flex items-center justify-between border-b border-hud-border-subtle pb-1.5">
         <span class="text-xs font-mono font-bold tracking-widest uppercase text-hud-cyan flex items-center gap-1.5">
           <i class="w-3.5 h-3.5" data-lucide="compass"></i>
           JOYSTICK DE MARCHA
         </span>
-        <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider">WASD / 360°</span>
+        <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider">TÁCTIL / WASD</span>
       </div>
 
-      <div class="relative w-full flex items-center justify-center my-1">
-        <div class="relative w-44 h-44 sm:w-48 sm:h-48 flex items-center justify-center touch-none cursor-grab active:cursor-grabbing" id="joystickZone">
+      <div class="relative w-full flex items-center justify-center my-2 lg:my-1">
+        <div class="relative w-52 h-52 sm:w-48 sm:h-48 flex items-center justify-center touch-none cursor-grab active:cursor-grabbing" id="joystickZone">
           <svg class="w-full h-full select-none" id="joystickSvg" viewbox="0 0 200 200">
             <defs>
               <radialgradient cx="50%" cy="50%" id="knobGlow" r="50%">
@@ -223,7 +248,7 @@
             <path d="M 100 100 L 100 100" filter="url(#vectorGlow)" id="vectorArc" stroke="#00E5FF" stroke-linecap="round" stroke-opacity="0.75" stroke-width="2.5"></path>
             <line filter="url(#neonBlur)" id="vectorLine" stroke="#00E5FF" stroke-opacity="0.9" stroke-width="2" x1="100" x2="100" y1="100" y2="100"></line>
             <g class="cursor-grab active:cursor-grabbing knob-smooth" id="joystickKnob" transform="translate(100, 100)">
-              <circle cx="0" cy="0" fill="url(#knobGlow)" filter="url(#neonBlur)" r="21" stroke="#00E5FF" stroke-width="2"></circle>
+              <circle cx="0" cy="0" fill="url(#knobGlow)" filter="url(#neonBlur)" r="22" stroke="#00E5FF" stroke-width="2"></circle>
               <circle cx="0" cy="0" fill="#0F1419" r="11" stroke="#00E5FF" stroke-width="1.5"></circle>
               <circle cx="0" cy="0" fill="#00E5FF" r="3.5"></circle>
             </g>
@@ -242,12 +267,12 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-2 gap-2 pt-1.5">
-        <button class="h-9 px-2 rounded-lg bg-slate-900/80 border border-hud-border text-[10px] font-mono font-bold tracking-wider flex items-center justify-between hover:bg-slate-800 transition" id="toggleLockHeading" onclick="toggleHeadingLock()">
+      <div class="grid grid-cols-2 gap-2 pt-2 lg:pt-1.5">
+        <button class="h-10 lg:h-9 px-2 rounded-lg bg-slate-900/80 border border-hud-border text-[10px] font-mono font-bold tracking-wider flex items-center justify-between hover:bg-slate-800 transition" id="toggleLockHeading" onclick="toggleHeadingLock()">
           <span class="text-slate-300">BLOQ. RUMBO</span>
           <span class="w-2 h-2 rounded-full bg-slate-600" id="lockStatusLed"></span>
         </button>
-        <button class="h-9 px-2 rounded-lg bg-slate-900/80 border border-hud-border text-[10px] font-mono font-bold tracking-wider flex items-center justify-between hover:bg-slate-800 transition" id="toggleFineMode" onclick="toggleFineControl()">
+        <button class="h-10 lg:h-9 px-2 rounded-lg bg-slate-900/80 border border-hud-border text-[10px] font-mono font-bold tracking-wider flex items-center justify-between hover:bg-slate-800 transition" id="toggleFineMode" onclick="toggleFineControl()">
           <span class="text-slate-300">MODO FINO</span>
           <span class="w-2 h-2 rounded-full bg-hud-emerald shadow-glow-emerald" id="fineStatusLed"></span>
         </button>
@@ -262,14 +287,14 @@
         </span>
         <span class="text-[10px] font-mono text-slate-300" id="yawValue">0.0°/s</span>
       </div>
-      <div class="relative h-11 w-full bg-black/50 rounded-lg border border-hud-border-subtle flex items-center px-3 justify-between overflow-hidden yaw-slider-track" id="yawTrack">
+      <div class="relative h-12 lg:h-11 w-full bg-black/50 rounded-lg border border-hud-border-subtle flex items-center px-3 justify-between overflow-hidden yaw-slider-track" id="yawTrack">
         <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div class="h-full w-0.5 bg-hud-cyan/40"></div>
         </div>
-        <div class="absolute top-1/2 -translate-y-1/2 w-4 h-7 rounded bg-hud-cyan/30 border border-hud-cyan flex items-center justify-center shadow-glow-cyan-sm pointer-events-none transition-all duration-100" id="yawHandle" style="left: calc(50% - 8px);">
+        <div class="absolute top-1/2 -translate-y-1/2 w-5 h-7 rounded bg-hud-cyan/30 border border-hud-cyan flex items-center justify-center shadow-glow-cyan-sm pointer-events-none transition-all duration-100" id="yawHandle" style="left: calc(50% - 10px);">
           <div class="w-1 h-3 bg-hud-cyan rounded-full"></div>
         </div>
-        <button class="z-10 w-9 h-8 rounded bg-slate-800/80 border border-hud-border flex items-center justify-center text-hud-cyan hover:bg-hud-cyan/20 active:scale-95 transition" onclick="applyYawStep(-1)">
+        <button class="z-10 w-10 h-9 lg:w-9 lg:h-8 rounded bg-slate-800/80 border border-hud-border flex items-center justify-center text-hud-cyan hover:bg-hud-cyan/20 active:scale-95 transition" onclick="applyYawStep(-1)">
           <i class="w-4 h-4" data-lucide="chevron-left"></i>
         </button>
         <div class="flex items-center gap-1 text-[9px] font-mono text-slate-400 tracking-widest z-10 pointer-events-none select-none">
@@ -277,7 +302,7 @@
           <span class="mx-1 text-slate-600">|</span>
           <span>DER / E ►</span>
         </div>
-        <button class="z-10 w-9 h-8 rounded bg-slate-800/80 border border-hud-border flex items-center justify-center text-hud-cyan hover:bg-hud-cyan/20 active:scale-95 transition" onclick="applyYawStep(1)">
+        <button class="z-10 w-10 h-9 lg:w-9 lg:h-8 rounded bg-slate-800/80 border border-hud-border flex items-center justify-center text-hud-cyan hover:bg-hud-cyan/20 active:scale-95 transition" onclick="applyYawStep(1)">
           <i class="w-4 h-4" data-lucide="chevron-right"></i>
         </button>
       </div>
@@ -287,15 +312,15 @@
       <div>
         <span class="text-[10px] font-mono font-bold tracking-wider uppercase text-slate-400 block mb-1">SELECTOR DE MARCHA (GAIT)</span>
         <div class="grid grid-cols-3 gap-1.5 font-mono text-[10px]">
-          <button class="py-1.5 px-1 rounded-md bg-hud-cyan/20 border border-hud-cyan text-hud-cyan font-bold text-center transition" id="gaitTripode" onclick="selectGait('tripode')">
+          <button class="py-2 lg:py-1.5 px-1 rounded-md bg-hud-cyan/20 border border-hud-cyan text-hud-cyan font-bold text-center transition" id="gaitTripode" onclick="selectGait('tripode')">
             TRÍPODE
             <span class="block text-[8px] opacity-75 font-normal">Rápido</span>
           </button>
-          <button class="py-1.5 px-1 rounded-md bg-slate-900 border border-hud-border text-slate-400 font-bold text-center hover:text-white transition" id="gaitOla" onclick="selectGait('ola')">
+          <button class="py-2 lg:py-1.5 px-1 rounded-md bg-slate-900 border border-hud-border text-slate-400 font-bold text-center hover:text-white transition" id="gaitOla" onclick="selectGait('ola')">
             OLA
             <span class="block text-[8px] opacity-75 font-normal">Estable</span>
           </button>
-          <button class="py-1.5 px-1 rounded-md bg-slate-900 border border-hud-border text-slate-400 font-bold text-center hover:text-white transition" id="gaitOndulante" onclick="selectGait('ondulante')">
+          <button class="py-2 lg:py-1.5 px-1 rounded-md bg-slate-900 border border-hud-border text-slate-400 font-bold text-center hover:text-white transition" id="gaitOndulante" onclick="selectGait('ondulante')">
             ONDULANTE
             <span class="block text-[8px] opacity-75 font-normal">Equilibrado</span>
           </button>
@@ -316,13 +341,47 @@
     </div>
   </section>
 
-  <!-- COLUMNA CENTRAL -->
-  <section class="col-span-5 flex flex-col gap-2.5 h-full min-h-0">
+  <!-- COLUMNA CENTRAL (RADAR Y CHASIS — PRIMERO EN MÓVIL) -->
+  <section class="order-1 lg:order-2 lg:col-span-5 flex flex-col gap-2.5 lg:h-full lg:min-h-0">
+    <!-- RADAR LIDAR 2D: MUNDO ABIERTO -->
+    <div class="hud-glass p-2.5 flex-1 flex flex-col justify-between relative overflow-hidden bg-hud-panel-dark order-1 lg:order-2" id="radarPanel">
+      <div class="flex flex-wrap items-center justify-between gap-1.5 border-b border-hud-border-subtle pb-1.5 z-10">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-mono font-bold text-hud-cyan tracking-wider flex items-center gap-1.5">
+            <i class="w-3.5 h-3.5 text-hud-cyan" data-lucide="radar"></i>
+            RADAR LIDAR 2D
+          </span>
+          <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-hud-emerald/20 text-hud-emerald border border-hud-emerald/40" id="radarObstacleBadge">
+            VÍA DESPEJADA
+          </span>
+        </div>
+        <div class="flex items-center gap-1 font-mono text-[9px]">
+          <button class="px-2 py-1 lg:py-0.5 rounded bg-hud-cyan/20 border border-hud-cyan text-hud-cyan font-bold transition" id="btnFollowCam" onclick="toggleFollowCam()">SEGUIR</button>
+          <button class="px-2 py-1 lg:py-0.5 rounded bg-slate-900 border border-hud-border text-slate-300 hover:text-hud-cyan transition" onclick="clearRadarTrail()">BORRAR</button>
+          <button class="px-2 py-1 lg:py-0.5 rounded bg-hud-emerald/15 border border-hud-emerald/60 text-hud-emerald font-bold transition" onclick="returnToBase()">A BASE</button>
+          <button class="px-2 py-1 lg:px-1.5 lg:py-0.5 rounded bg-slate-900 border border-hud-border text-slate-300 hover:text-hud-cyan transition" id="btnExpandRadar" onclick="toggleExpandRadar()" title="Expandir Mapa">⛶</button>
+        </div>
+      </div>
+
+      <div class="relative w-full flex-1 flex items-center justify-center my-1 min-h-[260px] lg:min-h-[150px] rounded overflow-hidden border border-hud-border-subtle bg-[#070B0E] touch-none" id="radarCanvasContainer">
+        <canvas class="w-full h-full block cursor-crosshair touch-none" id="radarCanvas"></canvas>
+        <div class="absolute top-1.5 left-2 pointer-events-none font-mono text-[8px] sm:text-[9px] text-slate-400 bg-black/60 px-1.5 py-0.5 rounded border border-hud-border-subtle">
+          TOCA MAPA: WAYPOINT · PELLIZCA/RUEDA: ZOOM
+        </div>
+        <div class="absolute bottom-1.5 left-2 pointer-events-none font-mono text-[9px] font-bold text-hud-cyan bg-black/70 px-1.5 py-0.5 rounded border border-hud-border-subtle" id="radarCoordsLabel">
+          X +0.00 m · Y +0.00 m
+        </div>
+        <div class="absolute bottom-1.5 right-2 pointer-events-none font-mono text-[9px] text-slate-300 bg-black/70 px-1.5 py-0.5 rounded border border-hud-border-subtle" id="radarZoomLabel">
+          SECTOR 24×24m · 1.0x
+        </div>
+      </div>
+    </div>
+
     <!-- CHASIS VECTORIAL 2D -->
-    <div class="hud-glass p-3 flex-1 flex flex-col relative overflow-hidden grid-bg" id="chassisPanel">
+    <div class="hud-glass p-3 flex-1 flex flex-col relative overflow-hidden grid-bg order-2 lg:order-1" id="chassisPanel">
       <div class="flex items-center justify-between border-b border-hud-border-subtle pb-2 z-10">
         <div class="flex items-center gap-2">
-          <div class="w-10 h-7 rounded border border-hud-cyan/40 bg-black/80 flex items-center justify-center relative overflow-hidden group cursor-pointer" title="Cámara Frontal HD">
+          <div class="w-9 h-7 rounded border border-hud-cyan/40 bg-black/80 flex items-center justify-center relative overflow-hidden group cursor-pointer" title="Cámara Frontal HD">
             <div class="absolute inset-0 bg-hud-cyan/10"></div>
             <i class="w-3.5 h-3.5 text-hud-cyan" data-lucide="video"></i>
             <span class="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-red-500 animate-ping"></span>
@@ -336,16 +395,10 @@
           </div>
         </div>
         <div class="flex items-center gap-1">
-          <button class="w-7 h-7 rounded bg-slate-900/80 border border-hud-border flex items-center justify-center text-slate-300 hover:text-hud-cyan hover:border-hud-cyan text-[10px] transition" title="Captura">
-            <i class="w-3.5 h-3.5" data-lucide="camera"></i>
-          </button>
-          <button class="w-7 h-7 rounded bg-slate-900/80 border border-hud-border flex items-center justify-center text-hud-red hover:bg-hud-red/20 text-[10px] transition" title="Grabar REC">
-            <span class="w-2.5 h-2.5 rounded-full bg-hud-red"></span>
-          </button>
-          <button class="w-7 h-7 rounded bg-slate-900/80 border border-hud-border flex items-center justify-center text-slate-400 hover:text-amber-400 text-[10px] transition" id="torchBtn" onclick="toggleTorch()" title="Proyector Frontal">
+          <button class="w-8 h-8 lg:w-7 lg:h-7 rounded bg-slate-900/80 border border-hud-border flex items-center justify-center text-slate-400 hover:text-amber-400 text-[10px] transition" id="torchBtn" onclick="toggleTorch()" title="Proyector Frontal">
             <i class="w-3.5 h-3.5" data-lucide="lightbulb"></i>
           </button>
-          <div class="flex bg-slate-900 rounded border border-hud-border p-0.5 text-[9px] font-mono">
+          <div class="hidden sm:flex bg-slate-900 rounded border border-hud-border p-0.5 text-[9px] font-mono">
             <button class="px-1 text-hud-cyan font-bold" onclick="setCamZoom('1x')">1x</button>
             <button class="px-1 text-slate-400 hover:text-white" onclick="setCamZoom('2x')">2x</button>
             <button class="px-1 text-slate-400 hover:text-white" onclick="setCamZoom('4x')">4x</button>
@@ -353,8 +406,8 @@
         </div>
       </div>
 
-      <div class="flex-1 w-full relative flex items-center justify-center my-0.5">
-        <svg class="w-full h-full max-h-[175px]" id="spiderSvg" viewbox="0 0 340 220">
+      <div class="flex-1 w-full relative flex items-center justify-center my-1">
+        <svg class="w-full h-full max-h-[165px]" id="spiderSvg" viewbox="0 0 340 220">
           <defs>
             <radialgradient cx="50%" cy="50%" id="bodyGrad" r="50%">
               <stop offset="0%" stop-color="#243342"></stop>
@@ -432,63 +485,29 @@
         </svg>
       </div>
 
-      <div class="grid grid-cols-4 gap-1.5 pt-1 border-t border-hud-border-subtle">
-        <button class="py-1.5 px-1 rounded bg-slate-900/90 border border-hud-border text-[9px] font-mono font-bold text-slate-300 hover:text-hud-cyan hover:border-hud-cyan transition flex items-center justify-center gap-1" id="poseBtnStand" onclick="setPose('stand')">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-1.5 border-t border-hud-border-subtle">
+        <button class="py-2 lg:py-1.5 px-1 rounded bg-slate-900/90 border border-hud-border text-[9px] font-mono font-bold text-slate-300 hover:text-hud-cyan hover:border-hud-cyan transition flex items-center justify-center gap-1" id="poseBtnStand" onclick="setPose('stand')">
           <i class="w-3 h-3 text-hud-emerald" data-lucide="arrow-up"></i>
           LEVANTARSE
         </button>
-        <button class="py-1.5 px-1 rounded bg-slate-900/90 border border-hud-border text-[9px] font-mono font-bold text-slate-300 hover:text-hud-cyan hover:border-hud-cyan transition flex items-center justify-center gap-1" id="poseBtnSit" onclick="setPose('sit')">
+        <button class="py-2 lg:py-1.5 px-1 rounded bg-slate-900/90 border border-hud-border text-[9px] font-mono font-bold text-slate-300 hover:text-hud-cyan hover:border-hud-cyan transition flex items-center justify-center gap-1" id="poseBtnSit" onclick="setPose('sit')">
           <i class="w-3 h-3 text-hud-amber" data-lucide="arrow-down"></i>
           SENTARSE
         </button>
-        <button class="py-1.5 px-1 rounded bg-slate-900/90 border border-hud-border text-[9px] font-mono font-bold text-slate-300 hover:text-hud-cyan hover:border-hud-cyan transition flex items-center justify-center gap-1" id="poseBtnWave" onclick="setPose('wave')">
+        <button class="py-2 lg:py-1.5 px-1 rounded bg-slate-900/90 border border-hud-border text-[9px] font-mono font-bold text-slate-300 hover:text-hud-cyan hover:border-hud-cyan transition flex items-center justify-center gap-1" id="poseBtnWave" onclick="setPose('wave')">
           <i class="w-3 h-3 text-hud-cyan" data-lucide="hand"></i>
           SALUDAR
         </button>
-        <button class="py-1.5 px-1 rounded bg-slate-900/90 border border-hud-border text-[9px] font-mono font-bold text-slate-300 hover:text-hud-cyan hover:border-hud-cyan transition flex items-center justify-center gap-1" id="poseBtnDance" onclick="setPose('dance')">
+        <button class="py-2 lg:py-1.5 px-1 rounded bg-slate-900/90 border border-hud-border text-[9px] font-mono font-bold text-slate-300 hover:text-hud-cyan hover:border-hud-cyan transition flex items-center justify-center gap-1" id="poseBtnDance" onclick="setPose('dance')">
           <i class="w-3 h-3 text-purple-400" data-lucide="sparkles"></i>
           BAILAR
         </button>
       </div>
     </div>
-
-    <!-- RADAR LIDAR 2D: MUNDO ABIERTO -->
-    <div class="hud-glass p-2.5 flex-1 flex flex-col justify-between relative overflow-hidden bg-hud-panel-dark" id="radarPanel">
-      <div class="flex items-center justify-between border-b border-hud-border-subtle pb-1 z-10">
-        <div class="flex items-center gap-2">
-          <span class="text-xs font-mono font-bold text-hud-cyan tracking-wider flex items-center gap-1.5">
-            <i class="w-3.5 h-3.5 text-hud-cyan" data-lucide="radar"></i>
-            RADAR LIDAR 2D
-          </span>
-          <span class="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-hud-emerald/20 text-hud-emerald border border-hud-emerald/40" id="radarObstacleBadge">
-            VÍA DESPEJADA
-          </span>
-        </div>
-        <div class="flex items-center gap-1 font-mono text-[9px]">
-          <button class="px-2 py-0.5 rounded bg-hud-cyan/20 border border-hud-cyan text-hud-cyan font-bold transition" id="btnFollowCam" onclick="toggleFollowCam()">SEGUIR</button>
-          <button class="px-2 py-0.5 rounded bg-slate-900 border border-hud-border text-slate-300 hover:text-hud-cyan transition" onclick="clearRadarTrail()">BORRAR ESTELA</button>
-          <button class="px-2 py-0.5 rounded bg-hud-emerald/15 border border-hud-emerald/60 text-hud-emerald font-bold transition" onclick="returnToBase()">A BASE</button>
-          <button class="px-1.5 py-0.5 rounded bg-slate-900 border border-hud-border text-slate-300 hover:text-hud-cyan transition" id="btnExpandRadar" onclick="toggleExpandRadar()" title="Expandir Mapa">⛶</button>
-        </div>
-      </div>
-
-      <div class="relative w-full flex-1 flex items-center justify-center my-0.5 min-h-[150px] rounded overflow-hidden border border-hud-border-subtle bg-[#070B0E]" id="radarCanvasContainer">
-        <canvas class="w-full h-full block cursor-crosshair" id="radarCanvas"></canvas>
-        <div class="absolute top-1.5 left-2 pointer-events-none font-mono text-[9px] text-slate-400 bg-black/60 px-1.5 py-0.5 rounded border border-hud-border-subtle">
-          CLIC EN MAPA: WAYPOINT · RUEDA: ZOOM · WASD: MOVER
-        </div>
-        <div class="absolute bottom-1.5 left-2 pointer-events-none font-mono text-[9px] font-bold text-hud-cyan bg-black/70 px-1.5 py-0.5 rounded border border-hud-border-subtle" id="radarCoordsLabel">
-          X +0.00 m · Y +0.00 m
-        </div>
-        <div class="absolute bottom-1.5 right-2 pointer-events-none font-mono text-[9px] text-slate-300 bg-black/70 px-1.5 py-0.5 rounded border border-hud-border-subtle" id="radarZoomLabel">
-          SECTOR 24×24m · 1.0x
-        </div>
-      </div>
-    </div>
   </section>
 
-  <!-- COLUMNA DERECHA -->
-  <section class="col-span-4 flex flex-col gap-2.5 h-full min-h-0">
+  <!-- COLUMNA DERECHA (TELEMETRÍA Y SERVOS) -->
+  <section class="order-3 lg:col-span-4 flex flex-col gap-2.5 lg:h-full lg:min-h-0">
     <div class="grid grid-cols-3 gap-2">
       <div class="hud-glass p-2 flex flex-col">
         <span class="text-[9px] font-mono text-slate-400 uppercase tracking-wider">VELOCIDAD</span>
@@ -531,7 +550,7 @@
         <span>CINEMÁTICA DEL CHASIS</span>
         <span class="text-[9px] text-slate-400">AJUSTE EN VIVO</span>
       </span>
-      <div class="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[9px] font-mono">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2 text-[9px] font-mono">
         <div>
           <div class="flex justify-between text-slate-300 mb-0.5">
             <span>ALTURA CUERPO</span>
@@ -568,33 +587,33 @@
         <span class="text-[10px] font-mono font-bold text-slate-300 uppercase tracking-wider">MATRIZ ARTICULAR (18 SERVOS)</span>
         <span class="text-[8px] font-mono text-slate-400">CADERA · FÉMUR · TIBIA</span>
       </div>
-      <div class="grid grid-cols-2 gap-x-2 gap-y-1 my-1 font-mono text-[9px]">
-        <div class="flex items-center justify-between bg-black/40 px-1.5 py-0.5 rounded border border-hud-border-subtle">
+      <div class="grid grid-cols-2 gap-x-2 gap-y-1.5 my-1.5 font-mono text-[9px]">
+        <div class="flex items-center justify-between bg-black/40 px-1.5 py-1 rounded border border-hud-border-subtle">
           <span class="font-bold text-slate-200">P1</span>
           <div class="flex items-center gap-1"><span class="w-3 h-1 bg-hud-cyan rounded-xs"></span><span class="w-4 h-1 bg-hud-cyan rounded-xs"></span><span class="w-3 h-1 bg-hud-cyan rounded-xs"></span></div>
           <span class="w-2 h-2 rounded-full bg-hud-emerald shadow-glow-emerald"></span>
         </div>
-        <div class="flex items-center justify-between bg-black/40 px-1.5 py-0.5 rounded border border-hud-border-subtle">
+        <div class="flex items-center justify-between bg-black/40 px-1.5 py-1 rounded border border-hud-border-subtle">
           <span class="font-bold text-slate-200">P2</span>
           <div class="flex items-center gap-1"><span class="w-3 h-1 bg-hud-cyan rounded-xs"></span><span class="w-3 h-1 bg-hud-cyan rounded-xs"></span><span class="w-4 h-1 bg-hud-cyan rounded-xs"></span></div>
           <span class="w-2 h-2 rounded-full bg-hud-emerald shadow-glow-emerald"></span>
         </div>
-        <div class="flex items-center justify-between bg-black/40 px-1.5 py-0.5 rounded border border-hud-border-subtle">
+        <div class="flex items-center justify-between bg-black/40 px-1.5 py-1 rounded border border-hud-border-subtle">
           <span class="font-bold text-slate-200">P3</span>
           <div class="flex items-center gap-1"><span class="w-4 h-1 bg-hud-cyan rounded-xs"></span><span class="w-3 h-1 bg-hud-cyan rounded-xs"></span><span class="w-3 h-1 bg-hud-cyan rounded-xs"></span></div>
           <span class="w-2 h-2 rounded-full bg-hud-emerald shadow-glow-emerald"></span>
         </div>
-        <div class="flex items-center justify-between bg-black/40 px-1.5 py-0.5 rounded border border-hud-amber/30">
+        <div class="flex items-center justify-between bg-black/40 px-1.5 py-1 rounded border border-hud-amber/30">
           <span class="font-bold text-hud-amber">P4</span>
           <div class="flex items-center gap-1"><span class="w-4 h-1 bg-hud-amber rounded-xs"></span><span class="w-5 h-1 bg-hud-amber rounded-xs"></span><span class="w-3 h-1 bg-hud-amber rounded-xs"></span></div>
           <span class="w-2 h-2 rounded-full bg-hud-amber shadow-glow-amber animate-pulse"></span>
         </div>
-        <div class="flex items-center justify-between bg-black/40 px-1.5 py-0.5 rounded border border-hud-border-subtle">
+        <div class="flex items-center justify-between bg-black/40 px-1.5 py-1 rounded border border-hud-border-subtle">
           <span class="font-bold text-slate-200">P5</span>
           <div class="flex items-center gap-1"><span class="w-3 h-1 bg-hud-cyan rounded-xs"></span><span class="w-4 h-1 bg-hud-cyan rounded-xs"></span><span class="w-3 h-1 bg-hud-cyan rounded-xs"></span></div>
           <span class="w-2 h-2 rounded-full bg-hud-emerald shadow-glow-emerald"></span>
         </div>
-        <div class="flex items-center justify-between bg-black/40 px-1.5 py-0.5 rounded border border-hud-border-subtle">
+        <div class="flex items-center justify-between bg-black/40 px-1.5 py-1 rounded border border-hud-border-subtle">
           <span class="font-bold text-slate-200">P6</span>
           <div class="flex items-center gap-1"><span class="w-4 h-1 bg-hud-cyan rounded-xs"></span><span class="w-3 h-1 bg-hud-cyan rounded-xs"></span><span class="w-4 h-1 bg-hud-cyan rounded-xs"></span></div>
           <span class="w-2 h-2 rounded-full bg-hud-emerald shadow-glow-emerald"></span>
@@ -622,12 +641,12 @@
   </section>
 </main>
 
-<footer class="hud-glass-header h-14 shrink-0 px-4 py-1.5 flex items-center gap-4 z-20">
+<footer class="hud-glass-header min-h-[3.5rem] shrink-0 px-3 lg:px-4 py-2 lg:py-1.5 flex flex-col lg:flex-row items-stretch lg:items-center gap-2.5 lg:gap-4 z-20">
   <div class="flex-1 flex flex-col justify-center overflow-hidden font-mono text-[10px] space-y-0.5">
     <div class="flex items-center gap-2 truncate" id="logLine1">
       <span class="text-slate-500">14:32:05</span>
       <span class="text-hud-emerald font-bold">[MUNDO]</span>
-      <span class="text-slate-300">Mapa táctico abierto 24×24m inicializado — Usa Joystick, WASD o haz clic en el Radar</span>
+      <span class="text-slate-300">Mapa táctico abierto 24×24m inicializado — Soporte táctil y escritorio activo</span>
     </div>
     <div class="flex items-center gap-2 truncate" id="logLine2">
       <span class="text-slate-500">14:31:58</span>
@@ -640,12 +659,12 @@
       <span class="text-slate-300">Marcha en trípode activada — Sincronización 18 DOF nominal</span>
     </div>
   </div>
-  <div class="flex items-center gap-2 w-80 shrink-0">
+  <div class="flex items-center gap-2 w-full lg:w-80 shrink-0">
     <div class="relative flex-1">
       <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-hud-cyan font-mono font-bold text-xs">&gt;</span>
-      <input class="w-full h-9 pl-6 pr-2 rounded bg-black/60 border border-hud-border text-xs font-mono text-slate-200 placeholder-slate-600 focus:outline-none focus:border-hud-cyan transition" id="commandInput" placeholder="CMD: base / center / gait wave" type="text"/>
+      <input class="w-full h-10 lg:h-9 pl-6 pr-2 rounded bg-black/60 border border-hud-border text-xs font-mono text-slate-200 placeholder-slate-600 focus:outline-none focus:border-hud-cyan transition" id="commandInput" placeholder="CMD: base / center / gait wave" type="text"/>
     </div>
-    <button class="h-9 px-3 rounded bg-hud-cyan/20 border border-hud-cyan text-hud-cyan hover:bg-hud-cyan hover:text-black font-mono font-bold text-xs uppercase tracking-wider transition active:scale-95 shadow-glow-cyan-sm" onclick="executeCommand()">
+    <button class="h-10 lg:h-9 px-3 rounded bg-hud-cyan/20 border border-hud-cyan text-hud-cyan hover:bg-hud-cyan hover:text-black font-mono font-bold text-xs uppercase tracking-wider transition active:scale-95 shadow-glow-cyan-sm" onclick="executeCommand()">
       EJECUTAR
     </button>
   </div>
@@ -783,8 +802,8 @@
 
     function getPointerSvgCoords(e) {
       const rect = joystickSvg.getBoundingClientRect();
-      const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
-      const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+      const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+      const clientY = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
       let x = ((clientX - rect.left) / rect.width) * 200;
       let y = ((clientY - rect.top) / rect.height) * 200;
       let dx = x - SVG_CENTER;
@@ -802,6 +821,7 @@
 
     joystickZone.addEventListener('pointerdown', (e) => {
       if (isEstop) return;
+      e.preventDefault();
       isDragging = true;
       joystickZone.setPointerCapture(e.pointerId);
       clearActiveStatePresets();
@@ -811,6 +831,7 @@
 
     joystickZone.addEventListener('pointermove', (e) => {
       if (!isDragging || isEstop) return;
+      e.preventDefault();
       const coords = getPointerSvgCoords(e);
       updateJoystickPosition(coords.x, coords.y, false);
     });
@@ -852,25 +873,26 @@
     function setYawFromPointer(e) {
       if (isEstop) return;
       const rect = yawTrack.getBoundingClientRect();
-      const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+      const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
       let ratio = Math.max(0.1, Math.min(0.9, (clientX - rect.left) / rect.width));
-      yawHandle.style.left = `calc(${ratio * 100}% - 8px)`;
+      yawHandle.style.left = `calc(${ratio * 100}% - 10px)`;
       currentYawRate = Math.round((ratio - 0.5) * 180);
       yawValue.innerText = `${currentYawRate >= 0 ? '+' : ''}${currentYawRate.toFixed(1)}°/s`;
     }
 
     yawTrack.addEventListener('pointerdown', (e) => {
       if (e.target.tagName === 'BUTTON' || e.target.closest('button') || isEstop) return;
+      e.preventDefault();
       isYawDragging = true;
       yawTrack.setPointerCapture(e.pointerId);
       setYawFromPointer(e);
     });
-    yawTrack.addEventListener('pointermove', (e) => { if (isYawDragging) setYawFromPointer(e); });
+    yawTrack.addEventListener('pointermove', (e) => { if (isYawDragging) { e.preventDefault(); setYawFromPointer(e); } });
     function releaseYaw(e) {
       if (!isYawDragging) return;
       isYawDragging = false;
       try { if (yawTrack.hasPointerCapture(e.pointerId)) yawTrack.releasePointerCapture(e.pointerId); } catch (err) {}
-      yawHandle.style.left = `calc(50% - 8px)`;
+      yawHandle.style.left = `calc(50% - 10px)`;
       currentYawRate = 0;
       yawValue.innerText = `0.0°/s`;
     }
@@ -881,9 +903,9 @@
       if (isEstop) return;
       world.spider.heading = (world.spider.heading + dir * 22.5 + 360) % 360;
       yawValue.innerText = `${dir > 0 ? '+45.0' : '-45.0'}°/s`;
-      yawHandle.style.left = dir > 0 ? `calc(80% - 8px)` : `calc(20% - 8px)`;
+      yawHandle.style.left = dir > 0 ? `calc(80% - 10px)` : `calc(20% - 10px)`;
       pushLog('[GIRO]', `Rotando ${dir > 0 ? 'sentido horario (CW)' : 'sentido antihorario (CCW)'}`, 'cyan');
-      setTimeout(() => { yawHandle.style.left = `calc(50% - 8px)`; yawValue.innerText = `0.0°/s`; }, 350);
+      setTimeout(() => { yawHandle.style.left = `calc(50% - 10px)`; yawValue.innerText = `0.0°/s`; }, 350);
     }
 
     function toggleHeadingLock() {
@@ -917,8 +939,8 @@
         const btn = document.getElementById(`gait${g.charAt(0).toUpperCase() + g.slice(1)}`);
         if (btn) {
           btn.className = g === gait
-            ? "py-1.5 px-1 rounded-md bg-hud-cyan/20 border border-hud-cyan text-hud-cyan font-bold text-center transition"
-            : "py-1.5 px-1 rounded-md bg-slate-900 border border-hud-border text-slate-400 font-bold text-center hover:text-white transition";
+            ? "py-2 lg:py-1.5 px-1 rounded-md bg-hud-cyan/20 border border-hud-cyan text-hud-cyan font-bold text-center transition"
+            : "py-2 lg:py-1.5 px-1 rounded-md bg-slate-900 border border-hud-border text-slate-400 font-bold text-center hover:text-white transition";
         }
       });
       pushLog('[MARCHA]', `Patrón de marcha cambiado a: ${gait.toUpperCase()}`, 'cyan');
@@ -1027,6 +1049,9 @@
     let panStart = { x: 0, y: 0 };
     let pointerDownPos = { x: 0, y: 0 };
     let isRadarExpanded = false;
+    let activePointers = new Map();
+    let initialPinchDist = null;
+    let initialPinchZoom = 32;
 
     function resizeRadarCanvas() {
       const rect = radarCanvas.parentElement.getBoundingClientRect();
@@ -1051,17 +1076,40 @@
     }
 
     radarCanvas.addEventListener('pointerdown', (e) => {
-      isPanningMap = true;
-      pointerDownPos = { x: e.clientX, y: e.clientY };
-      panStart = { x: e.clientX, y: e.clientY };
+      e.preventDefault();
+      activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       radarCanvas.setPointerCapture(e.pointerId);
+
+      if (activePointers.size === 2) {
+        const pts = Array.from(activePointers.values());
+        initialPinchDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+        initialPinchZoom = world.camera.zoom;
+        isPanningMap = false;
+      } else if (activePointers.size === 1) {
+        isPanningMap = true;
+        pointerDownPos = { x: e.clientX, y: e.clientY };
+        panStart = { x: e.clientX, y: e.clientY };
+      }
     });
 
     radarCanvas.addEventListener('pointermove', (e) => {
+      if (!activePointers.has(e.pointerId)) return;
+      e.preventDefault();
+      activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      if (activePointers.size === 2 && initialPinchDist) {
+        const pts = Array.from(activePointers.values());
+        const currentDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+        const scale = currentDist / initialPinchDist;
+        world.camera.zoom = Math.max(14, Math.min(85, initialPinchZoom * scale));
+        radarZoomLabel.innerText = `SECTOR 24×24m · ${(world.camera.zoom / 32).toFixed(1)}x`;
+        return;
+      }
+
       if (!isPanningMap) return;
       const dx = e.clientX - panStart.x;
       const dy = e.clientY - panStart.y;
-      if (Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y) > 5) {
+      if (Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y) > 6) {
         world.camera.follow = false;
         updateFollowBtnUI();
         world.camera.x -= dx / world.camera.zoom;
@@ -1070,12 +1118,15 @@
       panStart = { x: e.clientX, y: e.clientY };
     });
 
-    radarCanvas.addEventListener('pointerup', (e) => {
-      if (!isPanningMap) return;
-      isPanningMap = false;
+    function endRadarPointer(e) {
+      activePointers.delete(e.pointerId);
+      if (activePointers.size < 2) initialPinchDist = null;
       try { if (radarCanvas.hasPointerCapture(e.pointerId)) radarCanvas.releasePointerCapture(e.pointerId); } catch (err) {}
 
-      if (Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y) <= 5 && !isEstop) {
+      if (!isPanningMap) return;
+      isPanningMap = false;
+
+      if (Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y) <= 6 && !isEstop) {
         const rect = radarCanvas.getBoundingClientRect();
         const wPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height);
         const clampedX = Math.max(-world.halfSize + 0.6, Math.min(world.halfSize - 0.6, wPos.x));
@@ -1084,7 +1135,9 @@
         clearActiveStatePresets();
         pushLog('[NAVEGACIÓN]', `Waypoint fijado en X ${clampedX >= 0 ? '+' : ''}${clampedX.toFixed(2)}m, Y ${(-clampedY) >= 0 ? '+' : ''}${(-clampedY).toFixed(2)}m`, 'cyan');
       }
-    });
+    }
+    radarCanvas.addEventListener('pointerup', endRadarPointer);
+    radarCanvas.addEventListener('pointercancel', endRadarPointer);
 
     radarCanvas.addEventListener('wheel', (e) => {
       e.preventDefault();
@@ -1097,8 +1150,8 @@
       const btn = document.getElementById('btnFollowCam');
       if (!btn) return;
       btn.className = world.camera.follow
-        ? "px-2 py-0.5 rounded bg-hud-cyan/20 border border-hud-cyan text-hud-cyan font-bold transition"
-        : "px-2 py-0.5 rounded bg-slate-900 border border-hud-border text-slate-300 hover:text-hud-cyan transition";
+        ? "px-2 py-1 lg:py-0.5 rounded bg-hud-cyan/20 border border-hud-cyan text-hud-cyan font-bold transition"
+        : "px-2 py-1 lg:py-0.5 rounded bg-slate-900 border border-hud-border text-slate-300 hover:text-hud-cyan transition";
     }
 
     function toggleFollowCam() {
@@ -1129,12 +1182,17 @@
     function toggleExpandRadar() {
       isRadarExpanded = !isRadarExpanded;
       const chassisPanel = document.getElementById('chassisPanel');
+      const radarContainer = document.getElementById('radarCanvasContainer');
       const btn = document.getElementById('btnExpandRadar');
       if (isRadarExpanded) {
         chassisPanel.classList.add('hidden');
+        radarContainer.classList.remove('min-h-[260px]');
+        radarContainer.classList.add('min-h-[420px]');
         btn.innerText = '❐';
       } else {
         chassisPanel.classList.remove('hidden');
+        radarContainer.classList.remove('min-h-[420px]');
+        radarContainer.classList.add('min-h-[260px]');
         btn.innerText = '⛶';
       }
       setTimeout(resizeRadarCanvas, 30);
@@ -1319,14 +1377,14 @@
       if (obsDist !== null && obsDist < 1.1) {
         const cm = Math.round(obsDist * 100);
         radarObstacleBadge.innerText = `OBSTÁCULO ${cm} cm`;
-        radarObstacleBadge.className = "text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-hud-red/20 text-hud-red border border-hud-red/50 animate-pulse";
+        radarObstacleBadge.className = "text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-hud-red/20 text-hud-red border border-hud-red/50 animate-pulse";
         if (!lastObstacleWarn && cm < 55) {
           pushLog('[ALERTA]', `Proximidad crítica: Obstáculo detectado a ${cm} cm`, 'red');
           lastObstacleWarn = true;
         }
       } else {
         radarObstacleBadge.innerText = "VÍA DESPEJADA";
-        radarObstacleBadge.className = "text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-hud-emerald/20 text-hud-emerald border border-hud-emerald/40";
+        radarObstacleBadge.className = "text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-hud-emerald/20 text-hud-emerald border border-hud-emerald/40";
         lastObstacleWarn = false;
       }
 
@@ -1597,10 +1655,10 @@
         isEstop = false;
         estopBanner.classList.add('hidden');
         mainControlArea.classList.remove('opacity-40', 'pointer-events-none', 'filter');
-        estopBtn.className = "h-10 px-4 min-w-[170px] min-h-[44px] rounded-lg bg-gradient-to-r from-red-600 via-hud-red to-red-600 hover:from-red-500 hover:to-red-500 text-white font-mono font-extrabold text-xs tracking-widest uppercase flex items-center justify-center gap-2 shadow-glow-red border border-red-300/40 transition active:scale-95";
+        estopBtn.className = "h-9 lg:h-10 px-3 lg:px-4 lg:min-w-[170px] min-h-[40px] lg:min-h-[44px] rounded-lg bg-gradient-to-r from-red-600 via-hud-red to-red-600 hover:from-red-500 hover:to-red-500 text-white font-mono font-extrabold text-[11px] lg:text-xs tracking-widest uppercase flex items-center justify-center gap-1.5 lg:gap-2 shadow-glow-red border border-red-300/40 transition active:scale-95";
         estopBtnText.innerText = "PARO DE EMERGENCIA";
         armedBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-hud-emerald animate-pulse"></span> ARMED`;
-        armedBadge.className = "inline-flex items-center gap-1 px-2 py-0.5 rounded bg-hud-emerald/15 border border-hud-emerald/40 text-[10px] font-mono font-bold tracking-widest text-hud-emerald";
+        armedBadge.className = "inline-flex items-center gap-1 px-2 py-0.5 rounded bg-hud-emerald/15 border border-hud-emerald/40 text-[9px] lg:text-[10px] font-mono font-bold tracking-widest text-hud-emerald";
       }
 
       if (state === 'A') {
@@ -1634,10 +1692,10 @@
         updateJoystickPosition(100, 100, true);
         estopBanner.classList.remove('hidden');
         mainControlArea.classList.add('opacity-40', 'pointer-events-none', 'filter');
-        estopBtn.className = "h-10 px-4 min-w-[170px] min-h-[44px] rounded-lg bg-white text-hud-red font-mono font-extrabold text-xs tracking-widest uppercase flex items-center justify-center gap-2 shadow-glow-red border-2 border-red-500 transition active:scale-95";
+        estopBtn.className = "h-9 lg:h-10 px-3 lg:px-4 lg:min-w-[170px] min-h-[40px] lg:min-h-[44px] rounded-lg bg-white text-hud-red font-mono font-extrabold text-[11px] lg:text-xs tracking-widest uppercase flex items-center justify-center gap-1.5 lg:gap-2 shadow-glow-red border-2 border-red-500 transition active:scale-95";
         estopBtnText.innerText = "REARMAR SISTEMA";
         armedBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-hud-red"></span> DISARMED`;
-        armedBadge.className = "inline-flex items-center gap-1 px-2 py-0.5 rounded bg-hud-red/20 border border-hud-red text-[10px] font-mono font-bold tracking-widest text-hud-red";
+        armedBadge.className = "inline-flex items-center gap-1 px-2 py-0.5 rounded bg-hud-red/20 border border-hud-red text-[9px] lg:text-[10px] font-mono font-bold tracking-widest text-hud-red";
         pushLog('[EMERGENCIA]', 'PARO DE EMERGENCIA ACCIONADO: Alimentación cortada a servos', 'red');
       }
     }
@@ -1668,10 +1726,10 @@
       isTorch = !isTorch;
       const btn = document.getElementById('torchBtn');
       if (isTorch) {
-        btn.className = "w-7 h-7 rounded bg-amber-400 text-black border border-amber-300 text-[10px] transition shadow-glow-amber";
+        btn.className = "w-8 h-8 lg:w-7 lg:h-7 rounded bg-amber-400 text-black border border-amber-300 text-[10px] transition shadow-glow-amber";
         pushLog('[LUCES]', 'Foco LED frontal encendido (1200 lm)', 'amber');
       } else {
-        btn.className = "w-7 h-7 rounded bg-slate-900/80 border border-hud-border flex items-center justify-center text-slate-400 hover:text-amber-400 text-[10px] transition";
+        btn.className = "w-8 h-8 lg:w-7 lg:h-7 rounded bg-slate-900/80 border border-hud-border flex items-center justify-center text-slate-400 hover:text-amber-400 text-[10px] transition";
         pushLog('[LUCES]', 'Foco LED frontal apagado', 'cyan');
       }
     }

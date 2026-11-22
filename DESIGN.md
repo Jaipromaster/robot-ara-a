@@ -1,5 +1,5 @@
 ---
-name: ARACNO Tactical Command — Open World Edition
+name: ARACNO Tactical Command — Mobile & Desktop Edition
 colors:
   surface: '#0f1419'
   surface-dim: '#0f1419'
@@ -56,13 +56,10 @@ typography:
 
 ## Brand & Style
 
-This design system establishes a high-density, mission-critical tactical robotics interface built for real-time field operations, spatial orientation, and low-latency hardware control. The aesthetic combines dark obsidian glass panels, high-contrast luminous vector accents (`#00E5FF` Neon Cyan), and crisp technical telemetry readouts.
+Tactical robotics interface combining dark obsidian glass panels (`#0F1419`), translucent containers, and luminous neon cyan vectors (`#00E5FF`).
 
-## Open-World 2D LiDAR Radar Architecture
+## Mobile & Desktop Adaptability
 
-The central Radar LiDAR 2D panel operates as a real-time interactive 24m × 24m open-world tactical map rendered on HTML5 Canvas:
-
-- **Multi-Modal Locomotion:** Operators can drive ARACNO-6 freely via the 360° omnidirectional virtual joystick, keyboard (`WASD` / Arrow keys + `Q`/`E` yaw rotation), or autonomous click-to-navigate waypoints directly on the radar map.
-- **Collision & Raycast Proximity Detection:** Circular beacons, structural walls, and perimeter boundaries enforce solid collision physics while a forward LiDAR sensor cone measures real-time obstacle distance in centimeters (`VÍA DESPEJADA` vs `OBSTÁCULO XX cm`).
-- **Dynamic Camera & Telemetry:** Supports smooth spider-follow tracking, free-pan dragging, mouse-wheel zoom (`0.4x` to `2.7x`), fullscreen radar expansion, odometry tracking, and autonomous return-to-base (`A BASE`).
-- **Synchronized Hexapod Kinematics:** The top-down 18-DOF vector chassis animates leg swing and stance phases dynamically according to live velocity, selected gait (`TRÍPODE`, `OLA`, `ONDULANTE`), and quick poses (`LEVANTARSE`, `SENTARSE`, `SALUDAR`, `BAILAR`).
+- **Computadoras (>= 1024px):** Mantiene intacta la vista panorámica de 3 columnas con el radar LiDAR 2D, el chasis vectorial 18-DOF, el joystick y las tarjetas de telemetría visibles al mismo tiempo.
+- **Celulares y Tabletas (< 1024px):** Incorpora una barra de navegación táctica superior por pestañas (`MANDO + RADAR`, `CHASIS 18-DOF` y `TELEMETRÍA`) para pilotar el hexápodo con comodidad con los pulgares sin requerir scroll vertical.
+- **Gestos Táctiles:** Soporte para *pinch-to-zoom* con dos dedos en el radar y toque simple para fijar waypoints autónomos.
